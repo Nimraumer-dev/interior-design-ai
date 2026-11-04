@@ -1,98 +1,132 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Brand, Fonts, Typography } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+const { height } = Dimensions.get('window');
+
+export default function SplashScreen() {
+  const { isAuthenticated } = useAuth();
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.82)).current;
+  const taglineOpacity = useRef(new Animated.Value(0)).current;
+  const dividerWidth = useRef(new Animated.Value(0)).current;
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  isAuthenticatedRef.current = isAuthenticated;
+
+  useEffect(() => {
+    let redirectTimeout: ReturnType<typeof setTimeout> | undefined;
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(logoOpacity, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.spring(logoScale, { toValue: 1, friction: 7, tension: 40, useNativeDriver: true }),
+      ]),
+      Animated.timing(dividerWidth, { toValue: 48, duration: 500, useNativeDriver: false }),
+      Animated.timing(taglineOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
+    ]).start(() => {
+      redirectTimeout = setTimeout(() => {
+        router.replace(isAuthenticatedRef.current ? '/(tabs)' : '/(auth)/onboarding');
+      }, 1200);
+    });
+
+    return () => {
+      if (redirectTimeout) clearTimeout(redirectTimeout);
+    };
+  }, []);
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <View style={styles.container}>
+      {/* Warm gradient background via layered views */}
+      <View style={styles.bgTop} />
+      <View style={styles.bgBottom} />
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+      <Animated.View style={[styles.content, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
+        {/* Monogram mark */}
+        <View style={styles.monogramRing}>
+          <View style={styles.monogramInner}>
+            <Animated.Text style={styles.monogram}>A</Animated.Text>
+          </View>
+        </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        <Animated.Text style={styles.wordmark}>ATELIERА</Animated.Text>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        <Animated.View style={[styles.divider, { width: dividerWidth }]} />
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        <Animated.Text style={[styles.tagline, { opacity: taglineOpacity }]}>
+          AI Interior Design
+        </Animated.Text>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
+    backgroundColor: Brand.espresso,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
   },
-  title: {
-    textAlign: 'center',
+  bgTop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: Brand.walnut,
+    opacity: 0.55,
+    borderBottomLeftRadius: height * 0.6,
+    borderBottomRightRadius: height * 0.6,
+    top: -height * 0.25,
   },
-  code: {
+  bgBottom: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: Brand.espresso,
+    top: height * 0.5,
+  },
+  content: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  monogramRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 1.5,
+    borderColor: Brand.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  monogramInner: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(182,154,112,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monogram: {
+    fontSize: 36,
+    fontWeight: '300',
+    color: Brand.gold,
+    fontFamily: Fonts?.serif ?? 'serif',
+    letterSpacing: 2,
+  },
+  wordmark: {
+    ...Typography.headingLarge,
+    color: Brand.ivory,
+    letterSpacing: 8,
+    fontFamily: Fonts?.serif ?? 'serif',
+    fontWeight: '300',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Brand.gold,
+    opacity: 0.6,
+  },
+  tagline: {
+    ...Typography.labelMedium,
+    color: Brand.gold,
+    letterSpacing: 3,
     textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
   },
 });
