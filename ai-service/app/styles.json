@@ -1,0 +1,7 @@
+{
+  "scandinavian": {"palette": ["white", "light gray", "pale wood"], "materials": ["light wood", "wool", "linen"], "categories": ["sofa", "rug", "lamp", "table"]},
+  "industrial":   {"palette": ["charcoal", "brown", "rust"], "materials": ["metal", "leather", "concrete"], "categories": ["wardrobe", "sofa", "lamp", "table"]},
+  "minimalist":   {"palette": ["white", "beige", "black"], "materials": ["clean lines"], "categories": ["bed", "wardrobe", "chair"]},
+  "bohemian":     {"palette": ["terracotta", "mustard", "green"], "materials": ["rattan", "textiles", "plants"], "categories": ["rug", "decor", "chair"]},
+  "modern":       {"palette": ["gray", "white", "bold accent"], "materials": ["glass", "steel", "smooth fabric"], "categories": ["sofa", "lamp", "table"]}
+}

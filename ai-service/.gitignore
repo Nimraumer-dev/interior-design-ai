@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.env
+*.safetensors
+*.ckpt
+loras/
+data/
+*.blendresult_mock.jpg
+result_mock.jpg
+test.json
+out.json
