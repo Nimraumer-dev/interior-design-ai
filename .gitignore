@@ -1,0 +1,21 @@
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+ui-debug.log
+storage.rules.debug.log
+
+# Emulator export data
+.emulator-data/
+
+# Environment secrets
+.env
+.env.local
+*.local
+
+# Functions build output
+functions/lib/
+functions/node_modules/
+           # Mobile app (teammate's frontend)
+mobile-app/

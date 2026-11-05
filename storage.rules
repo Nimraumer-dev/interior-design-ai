@@ -1,0 +1,72 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    function isValidImage() {
+      return request.resource.contentType in [
+        'image/jpeg',
+        'image/png',
+        'image/webp'
+      ];
+    }
+
+    function isUnder10MB() {
+      return request.resource.size <= 10 * 1024 * 1024;
+    }
+
+    // ── /users/{uid}/** ───────────────────────────────────────────────────────
+    // Private per-user uploads (room photos, generated results, etc.)
+    match /users/{uid}/{allPaths=**} {
+      // Owner can read their own files
+      allow read: if isSignedIn() && request.auth.uid == uid;
+
+      // Owner can upload: images only, max 10 MB
+      allow create: if isSignedIn()
+                    && request.auth.uid == uid
+                    && isValidImage()
+                    && isUnder10MB();
+
+      // Owner can replace an existing file (same constraints)
+      allow update: if isSignedIn()
+                    && request.auth.uid == uid
+                    && isValidImage()
+                    && isUnder10MB();
+
+      // Owner can delete their own files
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ── /catalog/** ───────────────────────────────────────────────────────────
+    // 3D models and thumbnails for the furniture catalogue
+    match /catalog/{allPaths=**} {
+      // Any signed-in user can read catalogue assets
+      allow read: if isSignedIn();
+
+      // Only admins can upload or modify catalogue assets
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── /rooms3d/** ───────────────────────────────────────────────────────────
+    // Room template assets (previews, base models)
+    match /rooms3d/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Deny everything else ──────────────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
