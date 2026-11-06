@@ -101,8 +101,13 @@ export const setAdminRole = onCall(async (request) => {
 // Safe mock flow — no external AI service is called.
 // Replace the mock result block with real AI calls in a future task.
 //
-export const generateDesign = onCall(async (request) => {
-  // 1. Require authentication
+export const generateDesign = onCall(
+  {
+    secrets: ["AI_API_URL", "AI_API_KEY"],
+    timeoutSeconds: 180,
+    memory: "512MiB",
+  },
+  async (request) => {  // 1. Require authentication
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be signed in.");
   }
@@ -275,9 +280,10 @@ export const generateDesign = onCall(async (request) => {
     console.error(`[generateDesign] Failed designId=${designId}:`, message);
 
     if (err instanceof HttpsError) throw err;
-    throw new HttpsError("internal", "Design generation failed. Please try again.");
+        throw new HttpsError("internal", "Design generation failed. Please try again.");
   }
-});
+  }
+);
 
 // ── Firestore trigger: log new design submissions ─────────────────────────────
 // Lightweight audit log — replace or extend when adding a real job queue.

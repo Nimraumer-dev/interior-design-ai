@@ -1,37 +1,16 @@
+import { getStorage } from "firebase-admin/storage";
 import { AiGenerationInput, AiGenerationOutput, DesignResult, ColorSwatch } from "./types";
 
-// ── AI Integration stub ───────────────────────────────────────────────────────
-//
-// SPARK PLAN NOTE:
-//   Cloud Functions on the Spark (free) plan cannot make outbound network
-//   requests to external APIs. This stub will always use the mock path
-//   until the project is upgraded to the Blaze plan.
-//
-// CONFIGURATION (Blaze plan only):
-//   Set these Firebase Function secrets before deploying:
-//     firebase functions:secrets:set AI_API_URL
-//     firebase functions:secrets:set AI_API_KEY
-//
-//   The function reads them at runtime via process.env. Never hard-code
-//   URLs or tokens here.
-//
-// TO SWAP IN A REAL AI PROVIDER:
-//   1. Upgrade to Blaze plan.
-//   2. Set AI_API_URL and AI_API_KEY secrets.
-//   3. Replace the body of callAiService() below with your real HTTP call.
-//   4. Map the provider response to AiGenerationOutput.
-//   5. Set isMock: false in the returned output.
-// ─────────────────────────────────────────────────────────────────────────────
+// AI service (Colab) integration. Needs the Blaze plan and the secrets
+// AI_API_URL (no trailing slash, no /redesign) and AI_API_KEY.
 
-const AI_API_URL = process.env.AI_API_URL;   // undefined on Spark plan
-const AI_API_KEY = process.env.AI_API_KEY;   // undefined on Spark plan
+const AI_API_URL = process.env.AI_API_URL;
+const AI_API_KEY = process.env.AI_API_KEY;
 
 export function isAiConfigured(): boolean {
   return Boolean(AI_API_URL && AI_API_KEY);
 }
 
-// Returns mock output when AI is not configured (Spark plan).
-// Returns real AI output when secrets are set (Blaze plan).
 export async function callAiService(
   input: AiGenerationInput
 ): Promise<AiGenerationOutput> {
@@ -39,38 +18,71 @@ export async function callAiService(
     return buildMockOutput(input);
   }
 
-  // ── REAL AI CALL (Blaze plan only) ────────────────────────────────────────
-  // Replace this block with your actual provider integration.
-  // Example shape only — do not use as-is.
-  //
-  // const response = await fetch(AI_API_URL!, {
-  //   method: "POST",
-  //   headers: {
-  //     "Content-Type": "application/json",
-  //     "Authorization": `Bearer ${AI_API_KEY}`,
-  //   },
-  //   body: JSON.stringify({
-  //     room_type: input.roomType,
-  //     style: input.style,
-  //     image_path: input.imageStoragePath,
-  //   }),
-  // });
-  //
-  // if (!response.ok) {
-  //   throw new Error(`AI service error: ${response.status} ${response.statusText}`);
-  // }
-  //
-  // const data = await response.json();
-  // return mapProviderResponse(data);
-  // ── END REAL AI CALL ──────────────────────────────────────────────────────
+  const bucket = getStorage().bucket();
 
-  // Fallback — should not be reached once the block above is implemented
-  return buildMockOutput(input);
+  // 1) Temporary signed URL for the uploaded photo (15 minutes)
+  const [imageUrl] = await bucket.file(input.imageStoragePath).getSignedUrl({
+    action: "read",
+    expires: Date.now() + 15 * 60 * 1000,
+  });
+
+  const name = input.imageStoragePath.split("/").pop() ?? "unknown";
+
+  // 2) Call the AI service
+  const response = await fetch(`${AI_API_URL}/redesign`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${AI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      designId: name,
+      imageUrl,
+      roomType: input.roomType,
+      style: input.style,
+      numVariants: 1,
+      seed: 42,
+    }),
+    signal: AbortSignal.timeout(150000),
+  });
+
+  const data: any = await response.json();
+  if (!response.ok || data.status !== "ok") {
+    throw new Error(`AI service error: ${response.status} ${data.message ?? ""}`);
+  }
+
+  // 3) Save base64 results to Storage
+  const results: DesignResult[] = [];
+  for (let i = 0; i < data.results.length; i++) {
+    const path = `designs/${name}/result_${i + 1}.jpg`;
+    await bucket.file(path).save(
+      Buffer.from(data.results[i].imageBase64, "base64"),
+      { contentType: "image/jpeg" }
+    );
+    results.push({
+      label: `${input.style} ${input.roomType} - variant ${i + 1}`,
+      imagePath: path,
+      isMock: false,
+    });
+  }
+
+  // 4) Palette: AI returns hex colors, backend needs names too
+  const palette: ColorSwatch[] = (data.palette ?? []).map(
+    (hex: string, i: number) => ({ name: `Color ${i + 1}`, hex })
+  );
+
+  return {
+    results,
+    palette,
+    recommendations: [
+      "Add a statement rug to anchor the seating area.",
+      "Use warm-toned lighting (2700K-3000K) for a cosy feel.",
+    ],
+    isMock: false,
+  };
 }
 
-// ── Mock output builder ───────────────────────────────────────────────────────
-// Produces clearly labelled mock data. isMock: true on every result.
-// Replace with real provider mapping when integrating.
+// ── Mock output builder (used when AI is not configured) ─────────────────────
 
 function buildMockOutput(input: AiGenerationInput): AiGenerationOutput {
   const { roomType, style, imageStoragePath } = input;
