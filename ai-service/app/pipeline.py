@@ -39,8 +39,10 @@ def run_redesign(image, prompt, negative, seed):
         random.seed(seed)
         return ImageEnhance.Color(image).enhance(1.0 + random.random())
     import torch
-    control = _mlsd(image)
-    gen = torch.Generator("cuda").manual_seed(seed)
+    w, h = image.size
+    control = _mlsd(image, detect_resolution=512, image_resolution=max(w, h))
+    control = control.convert("RGB").resize((w, h))
+        gen = torch.Generator("cuda").manual_seed(seed)
     return _pipe(prompt=prompt, negative_prompt=negative,
                  image=image, control_image=control,
                  strength=0.85, controlnet_conditioning_scale=0.9,
