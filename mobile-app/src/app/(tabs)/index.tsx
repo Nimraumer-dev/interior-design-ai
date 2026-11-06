@@ -7,16 +7,23 @@ import { DesignCard } from '@/components/design/design-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
-import { MOCK_DESIGNS, MOCK_STYLES, MOCK_USER } from '@/services/mock-data';
+import { useTheme } from '@/hooks/use-theme';
+import { MOCK_STYLES, MOCK_USER } from '@/services/mock-data';
+import { useDesignStore } from '@/stores/design-store';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const recentDesigns = MOCK_DESIGNS.slice(0, 4);
+  const theme = useTheme();
+  const displayName = useDesignStore(state => state.displayName);
+  const designs = useDesignStore(state => state.designs);
+  const resetDesignFlow = useDesignStore(state => state.resetDesignFlow);
+  const setStyleId = useDesignStore(state => state.setStyleId);
+  const recentDesigns = designs.slice(0, 4);
   const featuredStyles = MOCK_STYLES.slice(0, 4);
 
   return (
     <ScrollView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: theme.ivory }]}
       contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       showsVerticalScrollIndicator={false}
     >
@@ -32,7 +39,12 @@ export default function HomeScreen() {
         {/* Top bar */}
         <View style={[styles.topBar, { paddingTop: insets.top + Spacing.two }]}>
           <Text style={styles.wordmark}>ATELIER</Text>
-          <Pressable style={styles.avatarBtn} accessibilityLabel="Profile">
+          <Pressable
+            style={styles.avatarBtn}
+            accessibilityLabel="Profile"
+            accessibilityRole="button"
+            onPress={() => router.push('/(tabs)/profile')}
+          >
             <Image
               source={{ uri: MOCK_USER.avatarUrl }}
               style={styles.avatar}
@@ -44,22 +56,28 @@ export default function HomeScreen() {
         {/* Hero copy */}
         <View style={styles.heroCopy}>
           <Text style={styles.heroGreeting}>Good morning,</Text>
-          <Text style={styles.heroName}>{MOCK_USER.displayName.split(' ')[0]}</Text>
+          <Text style={styles.heroName}>{displayName.split(' ')[0]}</Text>
           <Text style={styles.heroSub}>What will you redesign today?</Text>
           <Button
             label="Start New Design"
             size="md"
-            onPress={() => router.push('/(tabs)/generate')}
+            onPress={() => {
+              resetDesignFlow();
+              router.push('/(tabs)/generate');
+            }}
             style={styles.heroBtn}
           />
         </View>
+        <Text style={[styles.emptyDesignText, { color: theme.taupe }]}>
+          Sample allowance only; account limits require backend integration.
+        </Text>
       </View>
 
       {/* ── Featured Styles ───────────────────────────────────────────── */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Explore Styles</Text>
-          <Pressable>
+          <Text style={[styles.sectionTitle, { color: theme.espresso }]}>Explore Styles</Text>
+          <Pressable onPress={() => router.push('/(tabs)/generate')}>
             <Text style={styles.seeAll}>See all</Text>
           </Pressable>
         </View>
@@ -70,7 +88,17 @@ export default function HomeScreen() {
           contentContainerStyle={styles.stylesRow}
         >
           {featuredStyles.map(style => (
-            <Pressable key={style.id} style={styles.styleChip}>
+            <Pressable
+              key={style.id}
+              style={styles.styleChip}
+              accessibilityRole="button"
+              accessibilityLabel={`Create a design in ${style.name} style`}
+              onPress={() => {
+                resetDesignFlow();
+                setStyleId(style.id);
+                router.push({ pathname: '/(tabs)/generate', params: { styleId: style.id } });
+              }}
+            >
               <Image
                 source={{ uri: style.previewImageUrl }}
                 style={styles.styleChipImage}
@@ -86,33 +114,46 @@ export default function HomeScreen() {
       {/* ── Recent Designs ────────────────────────────────────────────── */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Designs</Text>
+          <Text style={[styles.sectionTitle, { color: theme.espresso }]}>Recent Designs</Text>
           <Pressable onPress={() => router.push('/(tabs)/designs')}>
             <Text style={styles.seeAll}>See all</Text>
           </Pressable>
         </View>
 
         <View style={styles.designsGrid}>
-          {recentDesigns.map((design, i) => (
+          {recentDesigns.length === 0 ? (
+            <View style={[styles.emptyDesigns, { backgroundColor: theme.cream }]}>
+              <Text style={[styles.emptyDesignText, { color: theme.taupe }]}>Your local designs will appear here.</Text>
+              <Button
+                label="Create a Demo Design"
+                variant="secondary"
+                onPress={() => router.push('/(tabs)/generate')}
+              />
+            </View>
+          ) : recentDesigns.map(design => (
             <View key={design.id} style={styles.gridItem}>
-              <DesignCard design={design} layout="grid" onPress={() => {}} />
+              <DesignCard
+                design={design}
+                layout="grid"
+                onPress={() => router.push({ pathname: '/design/result', params: { resultId: design.id } })}
+              />
             </View>
           ))}
         </View>
       </View>
 
       {/* ── Generation quota ─────────────────────────────────────────── */}
-      <View style={[styles.section, styles.quotaCard]}>
+      <View style={[styles.section, styles.quotaCard, { backgroundColor: theme.surfaceElevated }]}>
         <View style={styles.quotaRow}>
           <View>
-            <Text style={styles.quotaLabel}>Generations this month</Text>
-            <Text style={styles.quotaCount}>
+            <Text style={[styles.quotaLabel, { color: theme.taupe }]}>Demo generation allowance</Text>
+            <Text style={[styles.quotaCount, { color: theme.espresso }]}>
               {MOCK_USER.generationsUsed} / {MOCK_USER.generationsLimit}
             </Text>
           </View>
           <Badge label={MOCK_USER.plan} variant="accent" />
         </View>
-        <View style={styles.quotaTrack}>
+        <View style={[styles.quotaTrack, { backgroundColor: theme.beige }]}>
           <View
             style={[
               styles.quotaFill,
@@ -244,6 +285,15 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.two,
   },
+  emptyDesigns: {
+    width: '100%',
+    alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.four,
+    borderRadius: Radius.lg,
+    backgroundColor: Brand.cream,
+  },
+  emptyDesignText: { ...Typography.bodyMedium, color: Brand.taupe, textAlign: 'center' },
   gridItem: {
     width: '48%',
   },

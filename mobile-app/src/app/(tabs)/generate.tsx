@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
+import { useEffect } from 'react';
 
 import { Icon } from '@/components/ui/icon';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -9,7 +9,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { MOCK_STYLES } from '@/services/mock-data';
+import { useDesignStore } from '@/stores/design-store';
 import { RoomType } from '@/types/design';
 
 type RoomIconName = {
@@ -53,19 +55,33 @@ const ROOM_TYPES: { id: RoomType; label: string; icon: RoomIconName }[] = [
 
 export default function GenerateScreen() {
   const insets = useSafeAreaInsets();
-  const [selectedRoom, setSelectedRoom] = useState<RoomType | null>(null);
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const theme = useTheme();
+  const { styleId: routeStyleId } = useLocalSearchParams<{ styleId?: string }>();
+  const selectedRoom = useDesignStore(state => state.roomType);
+  const selectedStyleId = useDesignStore(state => state.styleId);
+  const preferredStyleId = useDesignStore(state => state.preferredStyleId);
+  const setRoomType = useDesignStore(state => state.setRoomType);
+  const setStyleId = useDesignStore(state => state.setStyleId);
+  const selectedStyle = selectedStyleId ?? preferredStyleId;
+
+  useEffect(() => {
+    if (routeStyleId && MOCK_STYLES.some(style => style.id === routeStyleId)) {
+      setStyleId(routeStyleId);
+    } else if (!selectedStyleId) {
+      setStyleId(preferredStyleId);
+    }
+  }, [preferredStyleId, routeStyleId, selectedStyleId, setStyleId]);
 
   const canProceed = selectedRoom !== null && selectedStyle !== null;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.overline}>AI REDESIGN</Text>
-        <Text style={styles.heading}>New Design</Text>
-        <Text style={styles.subheading}>
-          Choose your room type and preferred style to begin.
+      <View style={[styles.header, { borderBottomColor: theme.border }]}>
+        <Text style={styles.overline}>DESIGN PREVIEW</Text>
+        <Text style={[styles.heading, { color: theme.espresso }]}>New Design</Text>
+        <Text style={[styles.subheading, { color: theme.taupe }]}>
+          Choose a room and style. You can try the design flow with local demo content.
         </Text>
       </View>
 
@@ -75,15 +91,19 @@ export default function GenerateScreen() {
       >
         {/* ── Room type ──────────────────────────────────────────────── */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Select Room Type</Text>
+          <Text style={[styles.sectionLabel, { color: theme.walnut }]}>Select Room Type</Text>
           <View style={styles.roomGrid}>
             {ROOM_TYPES.map(room => {
               const isSelected = selectedRoom === room.id;
               return (
                 <Pressable
                   key={room.id}
-                  style={[styles.roomChip, isSelected && styles.roomChipSelected]}
-                  onPress={() => setSelectedRoom(room.id)}
+                  style={[
+                    styles.roomChip,
+                    { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+                    isSelected && { backgroundColor: theme.cream, borderColor: theme.gold },
+                  ]}
+                  onPress={() => setRoomType(room.id)}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSelected }}
                 >
@@ -92,9 +112,13 @@ export default function GenerateScreen() {
                     android={room.icon.android}
                     web={room.icon.web}
                     size={24}
-                    color={isSelected ? Brand.gold : Brand.taupe}
+                    color={isSelected ? theme.gold : theme.taupe}
                   />
-                  <Text style={[styles.roomLabel, isSelected && styles.roomLabelSelected]}>
+                  <Text style={[
+                    styles.roomLabel,
+                    { color: isSelected ? theme.espresso : theme.taupe },
+                    isSelected && styles.roomLabelSelected,
+                  ]}>
                     {room.label}
                   </Text>
                 </Pressable>
@@ -105,7 +129,7 @@ export default function GenerateScreen() {
 
         {/* ── Style picker ───────────────────────────────────────────── */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Choose a Style</Text>
+          <Text style={[styles.sectionLabel, { color: theme.walnut }]}>Choose a Style</Text>
           <View style={styles.stylesGrid}>
             {MOCK_STYLES.map(style => {
               const isSelected = selectedStyle === style.id;
@@ -113,7 +137,7 @@ export default function GenerateScreen() {
                 <Pressable
                   key={style.id}
                   style={[styles.styleCard, isSelected && styles.styleCardSelected]}
-                  onPress={() => setSelectedStyle(style.id)}
+                  onPress={() => setStyleId(style.id)}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSelected }}
                 >
@@ -151,16 +175,10 @@ export default function GenerateScreen() {
       </ScrollView>
 
       {/* ── CTA ──────────────────────────────────────────────────────── */}
-      <View style={[styles.ctaBar, { paddingBottom: insets.bottom + Spacing.three }]}>
+      <View style={[styles.ctaBar, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
         <Button
           label={canProceed ? 'Upload Room Photo' : 'Select Room & Style to Continue'}
-          onPress={() =>
-            canProceed &&
-            router.push({
-              pathname: '/design/upload',
-              params: { roomType: selectedRoom!, styleId: selectedStyle! },
-            })
-          }
+          onPress={() => canProceed && router.push('/design/upload')}
           disabled={!canProceed}
           fullWidth
           size="lg"

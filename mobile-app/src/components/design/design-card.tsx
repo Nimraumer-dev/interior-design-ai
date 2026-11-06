@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Badge } from '@/components/ui/badge';
 import { Brand, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { DesignResult } from '@/types/design';
 import { formatRelativeDate, roomTypeLabel } from '@/utils/format';
 
@@ -15,18 +16,26 @@ interface DesignCardProps {
 }
 
 export function DesignCard({ design, onPress, layout = 'grid' }: DesignCardProps) {
+  const theme = useTheme();
   if (layout === 'row') {
     return (
       <Pressable
-        style={({ pressed }) => [styles.rowCard, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.rowCard,
+          { backgroundColor: theme.surfaceElevated },
+          pressed && styles.pressed,
+        ]}
         onPress={onPress}
         accessibilityRole="button"
       >
         <Image source={{ uri: design.thumbnailUrl }} style={styles.rowImage} contentFit="cover" />
         <View style={styles.rowContent}>
-          <Badge label={design.styleName} variant="default" />
-          <Text style={styles.rowTitle} numberOfLines={2}>{design.title}</Text>
-          <Text style={styles.rowMeta}>
+          <View style={styles.badgeRow}>
+            <Badge label={design.styleName} variant="default" />
+            {design.isDemo && <Badge label="Demo" variant="accent" />}
+          </View>
+          <Text style={[styles.rowTitle, { color: theme.espresso }]} numberOfLines={2}>{design.title}</Text>
+          <Text style={[styles.rowMeta, { color: theme.taupe }]}>
             {roomTypeLabel(design.roomType)} · {formatRelativeDate(design.createdAt)}
           </Text>
         </View>
@@ -37,6 +46,11 @@ export function DesignCard({ design, onPress, layout = 'grid' }: DesignCardProps
               size={14}
               tintColor={Brand.gold}
             />
+          </View>
+        )}
+        {design.isDemo && (
+          <View style={styles.demoBadge}>
+            <Badge label="Demo" variant="accent" />
           </View>
         )}
       </Pressable>
@@ -99,7 +113,6 @@ const styles = StyleSheet.create({
   gridMeta: { ...Typography.labelSmall, color: Brand.beige, opacity: 0.85, marginTop: 2 },
   rowCard: {
     flexDirection: 'row',
-    backgroundColor: Brand.white,
     borderRadius: Radius.lg,
     overflow: 'hidden',
     alignItems: 'center',
@@ -112,8 +125,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     gap: 4,
   },
-  rowTitle: { ...Typography.labelLarge, color: Brand.espresso, fontWeight: '600' },
-  rowMeta: { ...Typography.bodySmall, color: Brand.taupe },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
+  demoBadge: { position: 'absolute', top: Spacing.two, left: Spacing.two },
+  rowTitle: { ...Typography.labelLarge, fontWeight: '600' },
+  rowMeta: { ...Typography.bodySmall },
   heartWrapRow: { paddingRight: Spacing.three },
   pressed: { opacity: 0.88, transform: [{ scale: 0.98 }] },
 });

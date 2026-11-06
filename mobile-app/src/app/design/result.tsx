@@ -1,65 +1,150 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import {
+  Alert,
+  PanResponder,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
-import { MOCK_DESIGNS } from '@/services/mock-data';
+import { useTheme } from '@/hooks/use-theme';
 import { roomTypeLabel } from '@/utils/format';
+import { useDesignStore } from '@/stores/design-store';
 
 export default function ResultScreen() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { resultId } = useLocalSearchParams<{ resultId?: string }>();
-  const design = MOCK_DESIGNS.find(d => d.id === resultId) ?? MOCK_DESIGNS[0];
+  const design = useDesignStore(state => state.designs.find(item => item.id === resultId));
+  const toggleDesignSaved = useDesignStore(state => state.toggleDesignSaved);
+  const resetDesignFlow = useDesignStore(state => state.resetDesignFlow);
+  const [sliderRatio, setSliderRatio] = useState(0.5);
+  const [comparisonWidth, setComparisonWidth] = useState(0);
+  const sliderWidth = useRef(0);
+  const startingRatio = useRef(0.5);
+  const sliderRatioRef = useRef(0.5);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 2,
+        onPanResponderGrant: () => {
+          startingRatio.current = sliderRatioRef.current;
+        },
+        onPanResponderMove: (_, gesture) => {
+          if (sliderWidth.current > 0) {
+            const nextRatio = Math.max(
+              0,
+              Math.min(1, startingRatio.current + gesture.dx / sliderWidth.current),
+            );
+            sliderRatioRef.current = nextRatio;
+            setSliderRatio(nextRatio);
+          }
+        },
+      }),
+    [],
+  );
 
-  const [showAfter, setShowAfter] = useState(true);
-  const [isSaved, setIsSaved] = useState(design.isFavorite);
+  if (!design) {
+    return (
+      <View style={[styles.root, styles.emptyResult, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
+        <SymbolView
+          name={{ ios: 'house', android: 'home', web: 'home' }}
+          size={40}
+          tintColor={Brand.gold}
+        />
+        <Text style={[styles.designTitle, { color: theme.espresso }]}>Design unavailable</Text>
+        <Text style={[styles.designSub, { color: theme.taupe }]}>It may have been deleted from this device.</Text>
+        <Button label="Go to My Designs" onPress={() => router.replace('/(tabs)/designs')} />
+      </View>
+    );
+  }
+
+  const isSaved = design.isFavorite;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
       {/* ── Top bar ──────────────────────────────────────────────────── */}
-      <View style={styles.topBar}>
-        <Pressable style={styles.iconBtn} onPress={() => router.back()} accessibilityLabel="Close">
-          <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={18} tintColor={Brand.espresso} weight="light" />
+      <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
+        <Pressable style={[styles.iconBtn, { backgroundColor: theme.beige }]} onPress={() => router.back()} accessibilityLabel="Close">
+          <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={18} tintColor={theme.espresso} weight="light" />
         </Pressable>
-        <Text style={styles.topTitle}>Your Design</Text>
-        <Pressable style={styles.iconBtn} onPress={() => setIsSaved(v => !v)} accessibilityLabel="Save design">
+        <Text style={[styles.topTitle, { color: theme.espresso }]}>Your Design</Text>
+        <Pressable
+          style={[styles.iconBtn, { backgroundColor: theme.beige }]}
+          onPress={() => toggleDesignSaved(design.id)}
+          accessibilityLabel={isSaved ? 'Remove saved design' : 'Save design'}
+          accessibilityRole="button"
+        >
           <SymbolView
             name={isSaved
               ? { ios: 'heart.fill', android: 'favorite', web: 'favorite' }
               : { ios: 'heart', android: 'favorite_border', web: 'favorite_border' }}
             size={18}
-            tintColor={isSaved ? Brand.gold : Brand.taupe}
+            tintColor={isSaved ? theme.gold : theme.taupe}
           />
         </Pressable>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}>
-        {/* ── Before / After toggle ─────────────────────────────────── */}
-        <View style={styles.imageWrap}>
+        <View style={[styles.demoNotice, { backgroundColor: theme.cream }]}>
+          <SymbolView
+            name={{ ios: 'info.circle', android: 'info', web: 'info' }}
+            size={14}
+            tintColor={theme.gold}
+          />
+          <Text style={[styles.demoNoticeText, { color: theme.walnut }]}>Demo preview — sample data, not an AI-generated result.</Text>
+        </View>
+
+        {/* ── Interactive Before / After comparison ────────────────── */}
+        <View
+          style={styles.imageWrap}
+          onLayout={event => {
+            const width = event.nativeEvent.layout.width;
+            sliderWidth.current = width;
+            setComparisonWidth(width);
+          }}
+        >
           <Image
-            source={{ uri: showAfter ? design.generatedImageUrl : design.originalImageUrl }}
+            source={{ uri: design.generatedImageUrl }}
             style={styles.mainImage}
             contentFit="cover"
           />
-          <View style={styles.togglePill}>
-            <Pressable
-              style={[styles.toggleBtn, !showAfter && styles.toggleBtnActive]}
-              onPress={() => setShowAfter(false)}
-            >
-              <Text style={[styles.toggleLabel, !showAfter && styles.toggleLabelActive]}>Before</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.toggleBtn, showAfter && styles.toggleBtnActive]}
-              onPress={() => setShowAfter(true)}
-            >
-              <Text style={[styles.toggleLabel, showAfter && styles.toggleLabelActive]}>After</Text>
-            </Pressable>
+          <View style={[styles.beforeClip, { width: `${sliderRatio * 100}%` }]}>
+            <Image
+              source={{ uri: design.originalImageUrl }}
+              style={[styles.mainImage, { width: comparisonWidth }]}
+              contentFit="cover"
+            />
           </View>
+          <View style={styles.imageLabelLeft}><Text style={styles.imageLabel}>Before</Text></View>
+          <View style={styles.imageLabelRight}><Text style={styles.imageLabel}>After</Text></View>
+          <View style={[styles.sliderDivider, { left: `${sliderRatio * 100}%` }]} pointerEvents="none" />
+          <Pressable
+            style={[styles.sliderHandle, { left: `${sliderRatio * 100}%` }]}
+            accessibilityRole="adjustable"
+            accessibilityLabel="Before and after image comparison"
+            accessibilityValue={{ min: 0, max: 100, now: Math.round(sliderRatio * 100) }}
+            {...panResponder.panHandlers}
+          >
+            <View style={styles.sliderHandleGrip}>
+              <SymbolView
+                name={{ ios: 'arrow.left.and.right', android: 'swap_horiz', web: 'swap_horiz' }}
+                size={15}
+                tintColor={theme.espresso}
+              />
+            </View>
+          </Pressable>
         </View>
 
         {/* ── Design info ───────────────────────────────────────────── */}
@@ -68,9 +153,9 @@ export default function ResultScreen() {
             <Badge label={design.styleName} variant="default" />
             <Badge label={roomTypeLabel(design.roomType)} variant="default" />
           </View>
-          <Text style={styles.designTitle}>{design.title}</Text>
-          <Text style={styles.designSub}>
-            AI-generated redesign · {design.suggestedFurniture.length} furniture pieces identified
+          <Text style={[styles.designTitle, { color: theme.espresso }]}>{design.title}</Text>
+          <Text style={[styles.designSub, { color: theme.taupe }]}>
+            {design.isDemo ? 'Demo sample' : 'Design result'} · {design.suggestedFurniture.length} furniture pieces
           </Text>
         </View>
 
@@ -78,58 +163,67 @@ export default function ResultScreen() {
         <View style={styles.thumbRow}>
           <View style={styles.thumbWrap}>
             <Image source={{ uri: design.originalImageUrl }} style={styles.thumb} contentFit="cover" />
-            <Text style={styles.thumbLabel}>Before</Text>
+            <Text style={[styles.thumbLabel, { color: theme.taupe }]}>Before</Text>
           </View>
           <View style={styles.thumbDivider}>
-            <SymbolView name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }} size={16} tintColor={Brand.gold} weight="light" />
+            <SymbolView name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }} size={16} tintColor={theme.gold} weight="light" />
           </View>
           <View style={styles.thumbWrap}>
             <Image source={{ uri: design.generatedImageUrl }} style={styles.thumb} contentFit="cover" />
-            <Text style={styles.thumbLabel}>After</Text>
+            <Text style={[styles.thumbLabel, { color: theme.taupe }]}>After</Text>
           </View>
         </View>
 
         {/* ── Action cards ─────────────────────────────────────────── */}
         <View style={styles.actionGrid}>
           <Pressable
-            style={styles.actionCard}
+            style={[styles.actionCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}
             onPress={() => router.push({ pathname: '/design/furniture', params: { resultId: design.id } })}
           >
-            <SymbolView name={{ ios: 'tag', android: 'sell', web: 'sell' }} size={22} tintColor={Brand.gold} weight="light" />
-            <Text style={styles.actionLabel}>Shop Furniture</Text>
-            <Text style={styles.actionSub}>{design.suggestedFurniture.length} items</Text>
+            <SymbolView name={{ ios: 'tag', android: 'sell', web: 'sell' }} size={22} tintColor={theme.gold} weight="light" />
+            <Text style={[styles.actionLabel, { color: theme.espresso }]}>Shop Furniture</Text>
+            <Text style={[styles.actionSub, { color: theme.taupe }]}>{design.suggestedFurniture.length} items</Text>
           </Pressable>
 
           <Pressable
-            style={styles.actionCard}
+            style={[styles.actionCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}
             onPress={() => router.push({ pathname: '/design/cost', params: { resultId: design.id } })}
           >
-            <SymbolView name={{ ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' }} size={22} tintColor={Brand.gold} weight="light" />
-            <Text style={styles.actionLabel}>Total Cost</Text>
-            <Text style={styles.actionSub}>View breakdown</Text>
+            <SymbolView name={{ ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' }} size={22} tintColor={theme.gold} weight="light" />
+            <Text style={[styles.actionLabel, { color: theme.espresso }]}>Total Cost</Text>
+            <Text style={[styles.actionSub, { color: theme.taupe }]}>View breakdown</Text>
           </Pressable>
 
           <Pressable
-            style={styles.actionCard}
+            style={[styles.actionCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}
             onPress={() => router.push({ pathname: '/design/preview-3d', params: { resultId: design.id } })}
           >
-            <SymbolView name={{ ios: 'cube', android: 'view_in_ar', web: 'view_in_ar' }} size={22} tintColor={Brand.gold} weight="light" />
-            <Text style={styles.actionLabel}>3D Preview</Text>
-            <Text style={styles.actionSub}>Walk through</Text>
+            <SymbolView name={{ ios: 'cube', android: 'view_in_ar', web: 'view_in_ar' }} size={22} tintColor={theme.gold} weight="light" />
+            <Text style={[styles.actionLabel, { color: theme.espresso }]}>3D Preview</Text>
+            <Text style={[styles.actionSub, { color: theme.taupe }]}>Walk through</Text>
           </Pressable>
 
-          <Pressable style={styles.actionCard}>
-            <SymbolView name={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }} size={22} tintColor={Brand.gold} weight="light" />
-            <Text style={styles.actionLabel}>Share</Text>
-            <Text style={styles.actionSub}>Send to friends</Text>
+          <Pressable
+            style={[styles.actionCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}
+            onPress={async () => {
+              try {
+                await Share.share({ message: `Take a look at my ${design.title} interior design.` });
+              } catch {
+                Alert.alert('Sharing unavailable', 'This design could not be shared on this device.');
+              }
+            }}
+          >
+            <SymbolView name={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }} size={22} tintColor={theme.gold} weight="light" />
+            <Text style={[styles.actionLabel, { color: theme.espresso }]}>Share</Text>
+            <Text style={[styles.actionSub, { color: theme.taupe }]}>Send to friends</Text>
           </Pressable>
         </View>
       </ScrollView>
 
       {/* ── CTA ──────────────────────────────────────────────────────── */}
-      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three }]}>
+      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
         <Button
-          label="Shop This Look"
+          label="Browse Sample Look"
           onPress={() => router.push({ pathname: '/design/furniture', params: { resultId: design.id } })}
           fullWidth
           size="lg"
@@ -137,7 +231,10 @@ export default function ResultScreen() {
         <Button
           label="Start New Design"
           variant="secondary"
-          onPress={() => router.replace('/(tabs)/generate')}
+          onPress={() => {
+            resetDesignFlow();
+            router.replace('/(tabs)/generate');
+          }}
           fullWidth
           size="md"
         />
@@ -148,6 +245,12 @@ export default function ResultScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.ivory },
+  emptyResult: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
+    gap: Spacing.three,
+  },
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.four, paddingVertical: Spacing.two,
@@ -158,18 +261,65 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.beige, alignItems: 'center', justifyContent: 'center',
   },
   topTitle: { fontSize: 16, fontWeight: '500', color: Brand.espresso, fontFamily: Fonts?.serif ?? 'serif' },
-  imageWrap: { position: 'relative' },
-  mainImage: { width: '100%', height: 320 },
-  togglePill: {
-    position: 'absolute', bottom: Spacing.three,
-    alignSelf: 'center', flexDirection: 'row',
-    backgroundColor: 'rgba(48,37,31,0.75)', borderRadius: Radius.full,
-    padding: 3,
+  demoNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
+    backgroundColor: Brand.cream,
   },
-  toggleBtn: { paddingVertical: Spacing.one, paddingHorizontal: Spacing.three, borderRadius: Radius.full },
-  toggleBtnActive: { backgroundColor: Brand.ivory },
-  toggleLabel: { ...Typography.labelMedium, color: Brand.beige },
-  toggleLabelActive: { color: Brand.espresso, fontWeight: '600' },
+  demoNoticeText: { ...Typography.bodySmall, color: Brand.walnut, textAlign: 'center' },
+  imageWrap: { position: 'relative', overflow: 'hidden' },
+  mainImage: { width: '100%', height: 320 },
+  beforeClip: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  imageLabelLeft: { position: 'absolute', top: Spacing.three, left: Spacing.three },
+  imageLabelRight: { position: 'absolute', top: Spacing.three, right: Spacing.three },
+  imageLabel: {
+    ...Typography.labelSmall,
+    color: Brand.ivory,
+    backgroundColor: 'rgba(48,37,31,0.72)',
+    overflow: 'hidden',
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+    borderRadius: Radius.full,
+  },
+  sliderDivider: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: Brand.ivory,
+    marginLeft: -1,
+  },
+  sliderHandle: {
+    position: 'absolute',
+    top: '50%',
+    width: 42,
+    height: 54,
+    marginTop: -27,
+    marginLeft: -21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sliderHandleGrip: {
+    width: 38,
+    height: 38,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Brand.ivory,
+    borderWidth: 1,
+    borderColor: Brand.gold,
+    ...Shadow.soft,
+  },
   infoCard: {
     paddingHorizontal: Spacing.four, paddingTop: Spacing.three, gap: Spacing.two,
   },

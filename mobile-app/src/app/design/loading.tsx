@@ -1,112 +1,146 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ProgressBar } from '@/components/ui/progress-bar';
+import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Spacing, Typography } from '@/constants/theme';
-import { MOCK_DESIGNS } from '@/services/mock-data';
+import { createDemoDesign } from '@/services/demo-designs';
+import { deleteDesignOriginalImage, persistDesignOriginalImage } from '@/services/local-design-images';
+import { useDesignStore } from '@/stores/design-store';
 
-const STEPS = [
-  'Analysing your room layout…',
-  'Applying style preferences…',
-  'Placing furniture intelligently…',
-  'Refining lighting and textures…',
-  'Finalising your design…',
-];
-
-const MOCK_RESULT_ID = MOCK_DESIGNS[0].id;
-const TOTAL_DURATION_MS = 4000;
-const STEP_INTERVAL_MS = TOTAL_DURATION_MS / STEPS.length;
+const DEMO_PREPARATION_MS = 700;
 
 export default function LoadingScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams();
-  const [stepIndex, setStepIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const roomType = useDesignStore(state => state.roomType);
+  const styleId = useDesignStore(state => state.styleId);
+  const budgetTier = useDesignStore(state => state.budgetTier);
+  const imageUri = useDesignStore(state => state.imageUri);
+  const addDesign = useDesignStore(state => state.addDesign);
+  const [attempt, setAttempt] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const canCreatePreview = Boolean(roomType && styleId && budgetTier && imageUri);
 
   useEffect(() => {
-    let step = 0;
-    const interval = setInterval(() => {
-      // Fade out → update text → fade in
-      Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
-        step += 1;
-        if (step < STEPS.length) {
-          setStepIndex(step);
-          setProgress((step + 1) / STEPS.length);
-          Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
-        }
-      });
-    }, STEP_INTERVAL_MS);
+    if (!roomType || !styleId || !budgetTier || !imageUri) {
+      setIsLoading(false);
+      setErrorMessage('Choose a room, style, budget, and photo before opening a demo preview.');
+      return;
+    }
 
-    // Kick off first progress tick
-    setProgress(1 / STEPS.length);
-
+    setIsLoading(true);
+    setErrorMessage(null);
+    let cancelled = false;
     const timeout = setTimeout(() => {
-      clearInterval(interval);
-      router.replace({ pathname: '/design/result', params: { ...params, resultId: MOCK_RESULT_ID } });
-    }, TOTAL_DURATION_MS + 400);
+      void (async () => {
+        let persistedImageUri: string | null = null;
+        try {
+          persistedImageUri = await persistDesignOriginalImage(imageUri);
+          if (cancelled) {
+            if (persistedImageUri !== imageUri) await deleteDesignOriginalImage(persistedImageUri);
+            return;
+          }
+          const design = createDemoDesign({
+            roomType,
+            styleId,
+            budgetTier,
+            imageUri: persistedImageUri,
+          });
+          addDesign(design);
+          setIsLoading(false);
+          router.replace({ pathname: '/design/result', params: { resultId: design.id } });
+        } catch (error) {
+          setIsLoading(false);
+          setErrorMessage(
+            error instanceof Error ? error.message : 'The demo preview could not be prepared.',
+          );
+        }
+      })();
+    }, DEMO_PREPARATION_MS);
 
-    return () => { clearInterval(interval); clearTimeout(timeout); };
-  }, []);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [addDesign, attempt, budgetTier, imageUri, roomType, styleId]);
+
+  const setupPath = !roomType || !styleId
+    ? '/(tabs)/generate'
+    : !imageUri
+      ? '/design/upload'
+      : '/design/budget';
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* Background image layer */}
+    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom + Spacing.four }]}>
       <View style={styles.bgPattern} />
 
       <View style={styles.content}>
-        {/* Animated ring */}
         <View style={styles.ringOuter}>
           <View style={styles.ringInner}>
+            {isLoading ? (
+              <ActivityIndicator size="large" color={Brand.gold} />
+            ) : (
+              <SymbolView
+                name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }}
+                size={38}
+                tintColor={Brand.gold}
+                weight="light"
+              />
+            )}
+          </View>
+        </View>
+
+        <Text style={styles.heading}>
+          {isLoading ? 'Preparing Your Demo Preview' : 'Demo Preview'}
+        </Text>
+        <Text style={styles.subheading}>
+          {isLoading
+            ? 'Saving your selections and preparing sample content on this device.'
+            : 'No AI request is made. This preview uses sample design and furniture data.'}
+        </Text>
+
+        {errorMessage ? (
+          <View style={styles.errorCard}>
             <SymbolView
-              name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }}
-              size={40}
-              tintColor={Brand.gold}
-              weight="light"
+              name={{ ios: 'exclamationmark.circle', android: 'error_outline', web: 'error_outline' }}
+              size={18}
+              tintColor="#A33B2E"
+            />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {errorMessage && (
+          <View style={styles.actions}>
+            <Button
+              label={canCreatePreview ? 'Retry Demo Preview' : 'Complete Setup'}
+              onPress={() => {
+                if (canCreatePreview) setAttempt(value => value + 1);
+                else router.replace(setupPath);
+              }}
+              fullWidth
+            />
+            <Button
+              label="Back"
+              variant="secondary"
+              onPress={() => router.back()}
+              fullWidth
             />
           </View>
-        </View>
-
-        <Text style={styles.heading}>Creating Your Design</Text>
-        <Text style={styles.subheading}>Our AI is reimagining your space</Text>
-
-        {/* Progress */}
-        <View style={styles.progressWrap}>
-          <ProgressBar progress={progress} height={6} animationDurationMs={600} />
-          <View style={styles.progressLabels}>
-            <Animated.Text style={[styles.stepText, { opacity: fadeAnim }]}>
-              {STEPS[stepIndex]}
-            </Animated.Text>
-            <Text style={styles.pctText}>{Math.round(progress * 100)}%</Text>
-          </View>
-        </View>
-
-        {/* Step dots */}
-        <View style={styles.dots}>
-          {STEPS.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                i < stepIndex + 1 ? styles.dotDone : styles.dotPending,
-              ]}
-            />
-          ))}
-        </View>
+        )}
       </View>
 
-      {/* Bottom note */}
-      <View style={[styles.bottomNote, { paddingBottom: insets.bottom + Spacing.four }]}>
+      <View style={styles.bottomNote}>
         <SymbolView
-          name={{ ios: 'lock.shield', android: 'security', web: 'security' }}
-          size={13}
+          name={{ ios: 'info.circle', android: 'info', web: 'info' }}
+          size={14}
           tintColor={Brand.taupe}
-          weight="light"
         />
-        <Text style={styles.noteText}>Your photo is processed securely and never stored.</Text>
+        <Text style={styles.noteText}>AI generation and cloud upload are pending integration.</Text>
       </View>
     </View>
   );
@@ -155,14 +189,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subheading: { ...Typography.bodyMedium, color: Brand.taupe, textAlign: 'center' },
-  progressWrap: { width: '100%', gap: Spacing.two },
-  progressLabels: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  stepText: { ...Typography.bodySmall, color: Brand.beige, flex: 1 },
-  pctText: { ...Typography.labelMedium, color: Brand.gold },
-  dots: { flexDirection: 'row', gap: Spacing.one },
-  dot: { width: 8, height: 4, borderRadius: Radius.full },
-  dotDone: { backgroundColor: Brand.gold },
-  dotPending: { backgroundColor: Brand.taupe, opacity: 0.4 },
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    width: '100%',
+    padding: Spacing.three,
+    borderRadius: Radius.md,
+    backgroundColor: '#FDECEA',
+  },
+  errorText: { ...Typography.bodySmall, color: '#A33B2E', flex: 1 },
+  actions: { width: '100%', gap: Spacing.two },
   bottomNote: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -170,5 +207,5 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     paddingHorizontal: Spacing.four,
   },
-  noteText: { ...Typography.bodySmall, color: Brand.taupe },
+  noteText: { ...Typography.bodySmall, color: Brand.taupe, textAlign: 'center' },
 });

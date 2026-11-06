@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Brand, Fonts, Radius, Spacing, Typography } from '@/constants/theme';
+import { Fonts, Radius, Spacing, Typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 interface FlowHeaderProps {
   title: string;
@@ -13,18 +14,19 @@ interface FlowHeaderProps {
 }
 
 export function FlowHeader({ title, subtitle, step, totalSteps, onBack }: FlowHeaderProps) {
+  const theme = useTheme();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { borderBottomColor: theme.border }]}>
       <View style={styles.topRow}>
         <Pressable
-          style={styles.backBtn}
+          style={[styles.backBtn, { backgroundColor: theme.beige }]}
           onPress={onBack ?? (() => router.back())}
           accessibilityLabel="Go back"
         >
           <SymbolView
             name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }}
             size={20}
-            tintColor={Brand.espresso}
+            tintColor={theme.espresso}
             weight="light"
           />
         </Pressable>
@@ -45,8 +47,8 @@ export function FlowHeader({ title, subtitle, step, totalSteps, onBack }: FlowHe
       </View>
 
       <View style={styles.titleBlock}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+        <Text style={[styles.title, { color: theme.espresso }]}>{title}</Text>
+        {subtitle && <Text style={[styles.subtitle, { color: theme.taupe }]}>{subtitle}</Text>}
       </View>
     </View>
   );
@@ -57,7 +59,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.three,
     borderBottomWidth: 1,
-    borderBottomColor: Brand.beige,
     gap: Spacing.three,
   },
   topRow: {
@@ -69,7 +70,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: Radius.full,
-    backgroundColor: Brand.beige,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -84,26 +84,24 @@ const styles = StyleSheet.create({
   },
   stepDotActive: {
     width: 20,
-    backgroundColor: Brand.gold,
+    backgroundColor: '#B69A70',
   },
   stepDotDone: {
     width: 8,
-    backgroundColor: Brand.gold,
+    backgroundColor: '#B69A70',
     opacity: 0.5,
   },
   stepDotInactive: {
     width: 8,
-    backgroundColor: Brand.beige,
+    backgroundColor: '#E7DED2',
   },
   titleBlock: { gap: 4 },
   title: {
     fontSize: 26,
     fontWeight: '300',
-    color: Brand.espresso,
     fontFamily: Fonts?.serif ?? 'serif',
   },
   subtitle: {
     ...Typography.bodyMedium,
-    color: Brand.taupe,
   },
 });

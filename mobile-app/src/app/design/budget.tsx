@@ -1,6 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,7 +7,9 @@ import { FlowHeader } from '@/components/design/flow-header';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { MOCK_BUDGETS } from '@/services/mock-data';
+import { useDesignStore } from '@/stores/design-store';
 import { BudgetTier } from '@/types/design';
 
 const TIER_ICONS: Record<BudgetTier, { ios: string; android: string; web: string }> = {
@@ -20,16 +21,17 @@ const TIER_ICONS: Record<BudgetTier, { ios: string; android: string; web: string
 
 export default function BudgetScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ roomType?: string; styleId?: string; imageUri?: string }>();
-  const [selectedTier, setSelectedTier] = useState<BudgetTier | null>(null);
+  const theme = useTheme();
+  const selectedTier = useDesignStore(state => state.budgetTier);
+  const setBudgetTier = useDesignStore(state => state.setBudgetTier);
 
   function handleContinue() {
     if (!selectedTier) return;
-    router.push({ pathname: '/design/loading', params: { ...params, budgetTier: selectedTier } });
+    router.push('/design/loading');
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + Spacing.three }]}>
+    <View style={[styles.root, { paddingTop: insets.top + Spacing.three, backgroundColor: theme.ivory }]}>
       <FlowHeader title="Set Your Budget" subtitle="We'll tailor furniture recommendations to your range." step={3} totalSteps={5} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 120, paddingTop: Spacing.four }}>
@@ -40,8 +42,12 @@ export default function BudgetScreen() {
             return (
               <Pressable
                 key={budget.id}
-                style={[styles.card, isSelected && styles.cardSelected]}
-                onPress={() => setSelectedTier(budget.id)}
+                style={[
+                  styles.card,
+                  { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
+                  isSelected && { borderColor: theme.gold, backgroundColor: theme.cream },
+                ]}
+                onPress={() => setBudgetTier(budget.id)}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: isSelected }}
               >
@@ -51,15 +57,15 @@ export default function BudgetScreen() {
                     android={icon.android}
                     web={icon.web}
                     size={22}
-                    color={isSelected ? Brand.white : Brand.gold}
+                    color={isSelected ? theme.textOnAccent : theme.gold}
                   />
                 </View>
                 <View style={styles.cardBody}>
                   <View style={styles.cardTop}>
-                    <Text style={[styles.cardLabel, isSelected && styles.cardLabelSelected]}>{budget.label}</Text>
-                    <Text style={[styles.cardRange, isSelected && styles.cardRangeSelected]}>{budget.rangeLabel}</Text>
+                    <Text style={[styles.cardLabel, { color: theme.espresso }, isSelected && styles.cardLabelSelected]}>{budget.label}</Text>
+                      <Text style={[styles.cardRange, { color: theme.taupe }, isSelected && styles.cardRangeSelected]}>{budget.rangeLabel}</Text>
                   </View>
-                  <Text style={styles.cardDesc}>{budget.description}</Text>
+                    <Text style={[styles.cardDesc, { color: theme.taupe }]}>{budget.description}</Text>
                 </View>
                 {isSelected && (
                   <SymbolView name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }} size={22} tintColor={Brand.gold} />
@@ -71,12 +77,12 @@ export default function BudgetScreen() {
 
         <View style={styles.note}>
           <SymbolView name={{ ios: 'info.circle', android: 'info', web: 'info' }} size={14} tintColor={Brand.taupe} weight="light" />
-          <Text style={styles.noteText}>Budget filters furniture recommendations only. AI redesign quality is the same across all tiers.</Text>
+          <Text style={[styles.noteText, { color: theme.taupe }]}>Budget filters demo furniture recommendations only. AI redesign quality is the same across all tiers.</Text>
         </View>
       </ScrollView>
 
-      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three }]}>
-        <Button label={selectedTier ? 'Generate My Design' : 'Select a Budget to Continue'} onPress={handleContinue} disabled={!selectedTier} fullWidth size="lg" />
+      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
+        <Button label={selectedTier ? 'Preview Demo Design' : 'Select a Budget to Continue'} onPress={handleContinue} disabled={!selectedTier} fullWidth size="lg" />
       </View>
     </View>
   );

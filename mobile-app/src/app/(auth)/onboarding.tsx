@@ -30,7 +30,7 @@ const SLIDES: Slide[] = [
     imageUrl: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=900&q=85',
     overline: 'Reimagine Your Space',
     heading: 'Design with\nArtificial Intelligence',
-    body: 'Upload a photo of any room and watch our AI transform it into a stunning interior in seconds.',
+    body: 'Choose a room and explore a local sample redesign. AI-generated transformations are pending integration.',
   },
   {
     id: '2',
@@ -44,7 +44,7 @@ const SLIDES: Slide[] = [
     imageUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=900&q=85',
     overline: 'Shop the Look',
     heading: 'Bring Your Vision\nTo Life',
-    body: 'Discover the exact furniture and décor pieces used in your design, ready to purchase instantly.',
+    body: 'Explore sample furniture and estimated costs inspired by each look. Live retailer availability is pending integration.',
   },
 ];
 

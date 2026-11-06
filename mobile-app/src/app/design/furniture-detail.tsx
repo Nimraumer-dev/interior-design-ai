@@ -2,39 +2,70 @@ import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { MOCK_FURNITURE } from '@/services/mock-data';
 import { formatPrice } from '@/utils/format';
+import { useDesignStore } from '@/stores/design-store';
 
 function DimRow({ label, value }: { label: string; value: string }) {
+  const theme = useTheme();
   return (
     <View style={styles.dimRow}>
-      <Text style={styles.dimLabel}>{label}</Text>
-      <Text style={styles.dimValue}>{value}</Text>
+      <Text style={[styles.dimLabel, { color: theme.taupe }]}>{label}</Text>
+      <Text style={[styles.dimValue, { color: theme.espresso }]}>{value}</Text>
     </View>
   );
 }
 
 export default function FurnitureDetailScreen() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { furnitureId, resultId } = useLocalSearchParams<{ furnitureId?: string; resultId?: string }>();
-  const item = MOCK_FURNITURE.find(f => f.id === furnitureId) ?? MOCK_FURNITURE[0];
+  const designs = useDesignStore(state => state.designs);
+  const design = designs.find(result => result.id === resultId);
+  const item = design?.suggestedFurniture.find(furniture => furniture.id === furnitureId)
+    ?? MOCK_FURNITURE.find(furniture => furniture.id === furnitureId);
   const [wishlisted, setWishlisted] = useState(false);
 
+  async function openRetailer() {
+    if (!item) return;
+    if (!item.productUrl) {
+      Alert.alert('Pending integration', 'A retailer link is not available for this furniture item yet.');
+      return;
+    }
+
+    try {
+      await Linking.openURL(item.productUrl);
+    } catch {
+      Alert.alert('Unable to open link', 'The retailer website could not be opened.');
+    }
+  }
+
+  if (!item) {
+    return (
+      <View style={[styles.root, styles.emptyResult, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
+        <Text style={[styles.itemName, { color: theme.espresso }]}>Furniture unavailable</Text>
+        <Text style={[styles.itemBrand, { color: theme.taupe }]}>This item is not in this design's sample catalogue.</Text>
+        <Button label="Go to My Designs" onPress={() => router.replace('/(tabs)/designs')} />
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
       {/* Top bar */}
-      <View style={styles.topBar}>
-        <Pressable style={styles.iconBtn} onPress={() => router.back()} accessibilityLabel="Go back">
-          <SymbolView name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }} size={18} tintColor={Brand.espresso} weight="light" />
+      <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
+        <Pressable style={[styles.iconBtn, { backgroundColor: theme.beige }]} onPress={() => router.back()} accessibilityLabel="Go back">
+          <SymbolView name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }} size={18} tintColor={theme.espresso} weight="light" />
         </Pressable>
-        <Text style={styles.topTitle} numberOfLines={1}>{item.name}</Text>
-        <Pressable style={styles.iconBtn} onPress={() => setWishlisted(v => !v)} accessibilityLabel="Wishlist">
+        <Text style={[styles.topTitle, { color: theme.espresso }]} numberOfLines={1}>{item.name}</Text>
+        <Pressable style={[styles.iconBtn, { backgroundColor: theme.beige }]} onPress={() => setWishlisted(v => !v)} accessibilityLabel="Wishlist">
           <SymbolView
             name={wishlisted ? { ios: 'heart.fill', android: 'favorite', web: 'favorite' } : { ios: 'heart', android: 'favorite_border', web: 'favorite_border' }}
             size={18}
@@ -52,25 +83,25 @@ export default function FurnitureDetailScreen() {
           <View style={styles.itemHeader}>
             <View style={styles.itemHeaderLeft}>
               <Badge label={item.category} variant="default" />
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemBrand}>{item.brand}</Text>
+              <Text style={[styles.itemName, { color: theme.espresso }]}>{item.name}</Text>
+              <Text style={[styles.itemBrand, { color: theme.taupe }]}>{item.brand}</Text>
             </View>
-            <Text style={styles.itemPrice}>{formatPrice(item.priceUsd)}</Text>
+            <Text style={[styles.itemPrice, { color: theme.gold }]}>{formatPrice(item.priceUsd)}</Text>
           </View>
 
           {/* Material */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Material</Text>
-            <View style={styles.materialRow}>
+            <Text style={[styles.sectionTitle, { color: theme.walnut }]}>Material</Text>
+            <View style={[styles.materialRow, { backgroundColor: theme.cream }]}>
               <SymbolView name={{ ios: 'leaf', android: 'eco', web: 'eco' }} size={16} tintColor={Brand.gold} weight="light" />
-              <Text style={styles.materialText}>{item.material}</Text>
+              <Text style={[styles.materialText, { color: theme.espresso }]}>{item.material}</Text>
             </View>
           </View>
 
           {/* Dimensions */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Dimensions</Text>
-            <View style={styles.dimsCard}>
+            <Text style={[styles.sectionTitle, { color: theme.walnut }]}>Dimensions</Text>
+            <View style={[styles.dimsCard, { backgroundColor: theme.surfaceElevated }]}>
               <DimRow label="Width" value={`${item.dimensions.widthCm} cm`} />
               <View style={styles.dimDivider} />
               <DimRow label="Height" value={`${item.dimensions.heightCm} cm`} />
@@ -81,11 +112,11 @@ export default function FurnitureDetailScreen() {
 
           {/* Why it fits */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Why It Fits Your Design</Text>
-            <View style={styles.fitCard}>
+            <Text style={[styles.sectionTitle, { color: theme.walnut }]}>Why It Fits Your Design</Text>
+            <View style={[styles.fitCard, { backgroundColor: theme.cream }]}>
               <SymbolView name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }} size={16} tintColor={Brand.gold} weight="light" />
-              <Text style={styles.fitText}>
-                This piece was selected by our AI because its proportions, material and colour palette complement your chosen style and room dimensions.
+              <Text style={[styles.fitText, { color: theme.taupe }]}>
+                Sample catalogue data illustrates how furniture recommendations will be presented. AI matching is pending integration.
               </Text>
             </View>
           </View>
@@ -93,8 +124,8 @@ export default function FurnitureDetailScreen() {
       </ScrollView>
 
       {/* CTA */}
-      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three }]}>
-        <Button label="View on Retailer Website" onPress={() => {}} fullWidth size="lg" />
+      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
+        <Button label="View on Retailer Website" onPress={openRetailer} fullWidth size="lg" />
         <Button
           label="Back to Furniture List"
           variant="secondary"
@@ -109,6 +140,7 @@ export default function FurnitureDetailScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.ivory },
+  emptyResult: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.four, gap: Spacing.three },
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.four, paddingVertical: Spacing.two,

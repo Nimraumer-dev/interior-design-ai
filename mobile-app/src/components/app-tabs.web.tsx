@@ -6,20 +6,28 @@ import {
   TabTriggerSlotProps,
   TabListProps,
 } from 'expo-router/ui';
-import { SymbolView } from 'expo-symbols';
+import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
 import { Pressable, useColorScheme, View, StyleSheet } from 'react-native';
 
 import { Brand, Colors, MaxContentWidth, Radius, Spacing, Typography } from '@/constants/theme';
 
 import { ThemedText } from './themed-text';
 
-type TabIconName = { ios: string; android: string; web: string };
+type TabIconName = { ios: SFSymbol; android: AndroidSymbol; web: AndroidSymbol };
 
 const TAB_ICONS: Record<string, TabIconName> = {
   Home: { ios: 'house', android: 'home', web: 'home' },
-  Generate: { ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' },
-  'My Designs': { ios: 'square.grid.2x2', android: 'grid_view', web: 'grid_view' },
-  Profile: { ios: 'person', android: 'person', web: 'person' },
+  Generate: {
+    ios: 'sparkles.rectangle.stack',
+    android: 'auto_awesome_mosaic',
+    web: 'auto_awesome_mosaic',
+  },
+  'My Designs': { ios: 'house.lodge', android: 'home_repair_service', web: 'home_repair_service' },
+  Profile: {
+    ios: 'person.crop.circle',
+    android: 'account_circle',
+    web: 'account_circle',
+  },
 };
 
 export default function AppTabs() {
@@ -59,8 +67,7 @@ export function TabButton({ children, isFocused, tabKey, ...props }: TabButtonPr
     <Pressable {...(props as any)} style={({ pressed }: { pressed: boolean }) => pressed && styles.pressed}>
       <View style={[styles.tabButtonView, isFocused && styles.tabButtonActive]}>
         {icon && (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          <SymbolView name={icon as any} size={16} tintColor={iconColor} weight="light" />
+          <SymbolView name={icon} size={20} tintColor={iconColor} weight="regular" />
         )}
         <ThemedText
           type="small"
@@ -113,6 +120,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     borderRadius: Radius.full,
   },
-  tabButtonActive: { backgroundColor: Brand.beige },
+  tabButtonActive: { backgroundColor: Brand.gold },
   activeLabel: { color: Brand.espresso, fontWeight: '600' },
 });

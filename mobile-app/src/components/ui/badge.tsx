@@ -29,6 +29,19 @@ export function Badge({ label, variant = 'default' }: BadgeProps) {
     error: '#721C24',
   };
 
+  if (variant === 'success' && theme.background === '#000000') {
+    bgColor.success = '#24452F';
+    textColor.success = '#BDE4C7';
+  }
+  if (variant === 'warning' && theme.background === '#000000') {
+    bgColor.warning = '#4A3A1B';
+    textColor.warning = '#F3D889';
+  }
+  if (variant === 'error' && theme.background === '#000000') {
+    bgColor.error = '#4A2626';
+    textColor.error = '#F4B8B8';
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: bgColor[variant] }]}>
       <Text style={[styles.label, { color: textColor[variant] }]}>{label.toUpperCase()}</Text>

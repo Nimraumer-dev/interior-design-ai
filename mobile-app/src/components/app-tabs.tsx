@@ -16,32 +16,32 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
+          sf="house"
+          md="home"
         />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="generate">
         <NativeTabs.Trigger.Label>Generate</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
+          sf="sparkles.rectangle.stack"
+          md="auto_awesome_mosaic"
         />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="designs">
         <NativeTabs.Trigger.Label>My Designs</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
+          sf="house.lodge"
+          md="home_repair_service"
         />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="profile">
         <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
+          sf="person.crop.circle"
+          md="account_circle"
         />
       </NativeTabs.Trigger>
     </NativeTabs>

@@ -2,7 +2,7 @@ import { GLView } from 'expo-gl';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PanResponder,
   Platform,
@@ -18,7 +18,8 @@ import * as THREE from 'three';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
-import { MOCK_DESIGNS } from '@/services/mock-data';
+import { useTheme } from '@/hooks/use-theme';
+import { useDesignStore } from '@/stores/design-store';
 
 type IconDef = { ios: string; android: string; web: string };
 
@@ -38,8 +39,9 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 
 export default function Preview3DScreen() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { resultId } = useLocalSearchParams<{ resultId?: string }>();
-  const design = MOCK_DESIGNS.find(d => d.id === resultId) ?? MOCK_DESIGNS[0];
+  const design = useDesignStore(state => state.designs.find(item => item.id === resultId));
   const useNative3D = Platform.OS !== 'web';
   const [sceneFallback, setSceneFallback] = useState(!useNative3D);
   const [sceneReady, setSceneReady] = useState(false);
@@ -47,6 +49,13 @@ export default function Preview3DScreen() {
   const roomRef = useRef<THREE.Group | null>(null);
   const animationRef = useRef<number | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+
+  useEffect(() => () => {
+    if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
+    rendererRef.current?.dispose();
+    rendererRef.current = null;
+    roomRef.current = null;
+  }, []);
 
   const resetView = useCallback(() => {
     cameraStateRef.current = { yaw: -1.1, pitch: 0.42, distance: 7.5 };
@@ -247,6 +256,16 @@ export default function Preview3DScreen() {
     }
   }, []);
 
+  if (!design) {
+    return (
+      <View style={[styles.root, styles.emptyResult, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
+        <Text style={[styles.emptyTitle, { color: theme.espresso }]}>Design unavailable</Text>
+        <Text style={[styles.emptyBody, { color: theme.taupe }]}>This design may have been deleted from this device.</Text>
+        <Button label="Go to My Designs" onPress={() => router.replace('/(tabs)/designs')} />
+      </View>
+    );
+  }
+
   const previewContent = sceneFallback || !useNative3D ? (
     <View style={styles.previewArea}>
       <Image source={{ uri: design.generatedImageUrl }} style={styles.previewImage} contentFit="cover" />
@@ -254,14 +273,6 @@ export default function Preview3DScreen() {
       <View style={styles.badge}>
         <SymbolView name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }} size={14} tintColor={Brand.gold} weight="light" />
         <Text style={styles.badgeText}>{useNative3D ? 'Fallback View' : '3D unavailable on this platform'}</Text>
-      </View>
-      <View style={styles.controls}>
-        <View style={styles.controlBtn}>
-          <Icon ios="arrow.up" android="arrow_upward" web="arrow_upward" size={18} color={Brand.ivory} />
-        </View>
-        <View style={styles.controlBtn}>
-          <Icon ios="arrow.clockwise" android="rotate_right" web="rotate_right" size={18} color={Brand.ivory} />
-        </View>
       </View>
     </View>
   ) : (
@@ -287,34 +298,37 @@ export default function Preview3DScreen() {
   );
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.topBar}>
-        <Pressable style={styles.iconBtn} onPress={() => router.back()} accessibilityLabel="Go back">
-          <SymbolView name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }} size={18} tintColor={Brand.espresso} weight="light" />
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
+      <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
+        <Pressable style={[styles.iconBtn, { backgroundColor: theme.beige }]} onPress={() => router.back()} accessibilityLabel="Go back">
+          <SymbolView name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }} size={18} tintColor={theme.espresso} weight="light" />
         </Pressable>
-        <Text style={styles.topTitle}>3D Preview</Text>
+        <Text style={[styles.topTitle, { color: theme.espresso }]}>3D Preview</Text>
         <View style={styles.iconBtn} />
       </View>
 
       {previewContent}
 
       <ScrollView style={styles.info} contentContainerStyle={{ gap: Spacing.three, paddingBottom: insets.bottom + 120 }}>
-        <Text style={styles.heading}>Immersive 3D Walkthrough</Text>
-        <Text style={styles.body}>
+        <Text style={[styles.heading, { color: theme.espresso }]}>Immersive 3D Walkthrough</Text>
+        <Text style={[styles.body, { color: theme.taupe }]}>
           Explore the room using drag-to-rotate controls and zoom buttons. This preview uses a native 3D scene when available, and falls back gracefully if the environment cannot support OpenGL.
         </Text>
+        <Text style={[styles.body, { color: theme.taupe }]}>
+          Demo scene only — it is not generated from this design. Real 3D assets and a WebView fallback are pending integration.
+        </Text>
 
-        <View style={styles.featureList}>
-          {FEATURES.map((f, i) => (
+        <View style={[styles.featureList, { backgroundColor: theme.surfaceElevated }]}>
+          {FEATURES.filter(feature => !(sceneFallback || !useNative3D) || !feature.label.includes('zoom controls')).map((f, i) => (
             <View key={i} style={styles.featureRow}>
               <Icon ios={f.icon.ios} android={f.icon.android} web={f.icon.web} size={16} color={Brand.gold} />
-              <Text style={styles.featureText}>{f.label}</Text>
+              <Text style={[styles.featureText, { color: theme.espresso }]}>{f.label}</Text>
             </View>
           ))}
         </View>
       </ScrollView>
 
-      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three }]}>
+      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
         <Button label={sceneFallback ? 'Back to Result' : 'Ready to Review'} onPress={() => router.back()} fullWidth size="lg" />
         <Button label="Back to Result" variant="secondary" onPress={() => router.back()} fullWidth size="md" />
       </View>
@@ -324,6 +338,9 @@ export default function Preview3DScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.ivory },
+  emptyResult: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.four, gap: Spacing.three },
+  emptyTitle: { ...Typography.headingMedium, color: Brand.espresso, textAlign: 'center' },
+  emptyBody: { ...Typography.bodyMedium, color: Brand.taupe, textAlign: 'center' },
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.four, paddingVertical: Spacing.two,

@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { Alert } from 'react-native';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,10 +17,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocalUiState } from '@/hooks/use-local-ui-state';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function SignupScreen() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { signup, isLoading } = useAuth();
+  const { setDisplayName: setLocalDisplayName } = useLocalUiState();
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -37,6 +42,7 @@ export default function SignupScreen() {
     if (err) {
       setError(err);
     } else {
+      setLocalDisplayName(displayName.trim());
       router.replace('/(tabs)');
     }
   }
@@ -66,9 +72,9 @@ export default function SignupScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.heading}>Create account</Text>
-            <Text style={styles.subheading}>Join thousands of design enthusiasts</Text>
+          <View style={[styles.card, { backgroundColor: theme.ivory }]}>
+            <Text style={[styles.heading, { color: theme.espresso }]}>Create account</Text>
+            <Text style={[styles.subheading, { color: theme.taupe }]}>Local demo account only; your details are not sent to a service.</Text>
 
             {error && (
               <View style={styles.errorBox}>
@@ -78,9 +84,9 @@ export default function SignupScreen() {
 
             {/* Full name */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Full Name</Text>
+              <Text style={[styles.label, { color: theme.walnut }]}>Full Name</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.cream, color: theme.espresso, borderColor: theme.border }]}
                 value={displayName}
                 onChangeText={setDisplayName}
                 placeholder="Your name"
@@ -92,9 +98,9 @@ export default function SignupScreen() {
 
             {/* Email */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Email Address</Text>
+              <Text style={[styles.label, { color: theme.walnut }]}>Email Address</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.cream, color: theme.espresso, borderColor: theme.border }]}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="your@email.com"
@@ -108,10 +114,10 @@ export default function SignupScreen() {
 
             {/* Password */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={[styles.label, { color: theme.walnut }]}>Password</Text>
               <View style={styles.inputRow}>
                 <TextInput
-                  style={[styles.input, styles.inputFlex]}
+                  style={[styles.input, styles.inputFlex, { backgroundColor: theme.cream, color: theme.espresso, borderColor: theme.border }]}
                   value={password}
                   onChangeText={setPassword}
                   placeholder="Min. 8 characters"
@@ -125,20 +131,34 @@ export default function SignupScreen() {
                   style={styles.eyeBtn}
                   accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
                 >
-                  <Text style={styles.eyeText}>{passwordVisible ? 'Hide' : 'Show'}</Text>
+                  <Text style={[styles.eyeText, { color: theme.taupe }]}>{passwordVisible ? 'Hide' : 'Show'}</Text>
                 </Pressable>
               </View>
             </View>
 
             {/* Terms */}
-            <Text style={styles.terms}>
+            <Text style={[styles.terms, { color: theme.taupe }]}>
               By creating an account you agree to our{' '}
-              <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
-              <Text style={styles.termsLink}>Privacy Policy</Text>.
+              <Text
+                style={[styles.termsLink, { color: theme.gold }]}
+                onPress={() => Alert.alert('Pending integration', 'Terms of Service are not configured yet.')}
+                accessibilityRole="link"
+              >
+                Terms of Service
+              </Text>{' '}
+              and{' '}
+              <Text
+                style={[styles.termsLink, { color: theme.gold }]}
+                onPress={() => Alert.alert('Pending integration', 'The Privacy Policy is not configured yet.')}
+                accessibilityRole="link"
+              >
+                Privacy Policy
+              </Text>
+              .
             </Text>
 
             <Button
-              label="Create Account"
+              label="Create Demo Account"
               onPress={handleSignup}
               loading={isLoading}
               fullWidth
@@ -146,14 +166,14 @@ export default function SignupScreen() {
             />
 
             <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
+              <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+              <Text style={[styles.dividerText, { color: theme.taupe }]}>or</Text>
+              <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
             </View>
 
             <Pressable onPress={() => router.back()} style={styles.loginRow}>
-              <Text style={styles.loginText}>Already have an account? </Text>
-              <Text style={styles.loginLink}>Sign in</Text>
+              <Text style={[styles.loginText, { color: theme.taupe }]}>Already have an account? </Text>
+              <Text style={[styles.loginLink, { color: theme.gold }]}>Sign in</Text>
             </Pressable>
           </View>
         </ScrollView>

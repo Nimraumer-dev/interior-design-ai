@@ -1,14 +1,17 @@
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Image } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FlowHeader } from '@/components/design/flow-header';
 import { Button } from '@/components/ui/button';
 import { Brand, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { useDesignStore } from '@/stores/design-store';
 
 const MOCK_PHOTOS = [
   'https://images.unsplash.com/photo-1484101403633-562f891dc89a?w=600&q=80',
@@ -21,35 +24,62 @@ const MOCK_PHOTOS = [
 
 export default function UploadScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ roomType?: string; styleId?: string }>();
-  const [selectedUri, setSelectedUri] = useState<string | null>(null);
+  const theme = useTheme();
+  const selectedUri = useDesignStore(state => state.imageUri);
+  const setImageUri = useDesignStore(state => state.setImageUri);
   const [isPicking, setIsPicking] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function requestGalleryPermission() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      setErrorMessage('Photo library access is required to choose a room image.');
-      Alert.alert(
-        'Permission needed',
-        'Please allow access to your photos so you can continue.',
-      );
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setErrorMessage('Photo library access is required to choose a room image.');
+        Alert.alert(
+          'Permission needed',
+          'Please allow access to your photos so you can continue.',
+        );
+        return false;
+      }
+      return true;
+    } catch {
+      setErrorMessage('The photo library permission could not be checked. Try again.');
       return false;
     }
-    return true;
   }
 
   async function requestCameraPermission() {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      setErrorMessage('Camera access is required to take a room photo.');
-      Alert.alert(
-        'Permission needed',
-        'Please enable camera access so you can capture a room photo.',
-      );
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        setErrorMessage('Camera access is required to take a room photo.');
+        Alert.alert(
+          'Permission needed',
+          'Please enable camera access so you can capture a room photo.',
+        );
+        return false;
+      }
+      return true;
+    } catch {
+      setErrorMessage('The camera permission could not be checked. Try again.');
       return false;
     }
-    return true;
+  }
+
+  async function shrinkImage(uri: string, width: number, height: number) {
+    const saveOptions = { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG };
+    const result = width >= height
+      ? await ImageManipulator.manipulateAsync(
+          uri,
+          [{ resize: { width: Math.min(width, 1024) } }],
+          saveOptions,
+        )
+      : await ImageManipulator.manipulateAsync(
+          uri,
+          [{ resize: { height: Math.min(height, 1024) } }],
+          saveOptions,
+        );
+    return result.uri;
   }
 
   async function pickFromLibrary() {
@@ -77,8 +107,9 @@ export default function UploadScreen() {
         return;
       }
 
-      setSelectedUri(uri);
-    } catch (error) {
+      const asset = result.assets[0];
+      setImageUri(await shrinkImage(uri, asset.width, asset.height));
+    } catch {
       setErrorMessage('Something went wrong while choosing your photo. Please try again.');
     } finally {
       setIsPicking(false);
@@ -109,8 +140,9 @@ export default function UploadScreen() {
         return;
       }
 
-      setSelectedUri(uri);
-    } catch (error) {
+      const asset = result.assets[0];
+      setImageUri(await shrinkImage(uri, asset.width, asset.height));
+    } catch {
       setErrorMessage('The camera could not be opened. Please try again.');
     } finally {
       setIsPicking(false);
@@ -118,7 +150,7 @@ export default function UploadScreen() {
   }
 
   function removePhoto() {
-    setSelectedUri(null);
+    setImageUri(null);
     setErrorMessage(null);
   }
 
@@ -130,12 +162,11 @@ export default function UploadScreen() {
 
     router.push({
       pathname: '/design/choose-style',
-      params: { ...params, imageUri: selectedUri },
     });
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + Spacing.three }]}>
+    <View style={[styles.root, { paddingTop: insets.top + Spacing.three, backgroundColor: theme.ivory }]}>
       <FlowHeader
         title="Upload a Photo"
         subtitle="Take or choose a photo of your room."
@@ -149,18 +180,18 @@ export default function UploadScreen() {
       >
         {selectedUri ? (
           <View style={styles.previewSection}>
-            <View style={styles.previewCard}>
+            <View style={[styles.previewCard, { borderColor: theme.border }]}>
               <Image source={{ uri: selectedUri }} style={styles.previewImage} contentFit="cover" />
               <View style={styles.previewOverlay} />
               <Text style={styles.previewLabel}>Selected Room Photo</Text>
             </View>
 
             <View style={styles.selectionActions}>
-              <Pressable style={styles.selectionButton} onPress={takePhoto} disabled={isPicking}>
-                <Text style={styles.selectionButtonText}>Retake</Text>
+              <Pressable style={[styles.selectionButton, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]} onPress={takePhoto} disabled={isPicking}>
+                <Text style={[styles.selectionButtonText, { color: theme.espresso }]}>Retake</Text>
               </Pressable>
-              <Pressable style={styles.selectionButton} onPress={pickFromLibrary} disabled={isPicking}>
-                <Text style={styles.selectionButtonText}>Change Photo</Text>
+              <Pressable style={[styles.selectionButton, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]} onPress={pickFromLibrary} disabled={isPicking}>
+                <Text style={[styles.selectionButtonText, { color: theme.espresso }]}>Change Photo</Text>
               </Pressable>
               <Pressable style={[styles.selectionButton, styles.removeButton]} onPress={removePhoto}>
                 <Text style={[styles.selectionButtonText, styles.removeText]}>Remove</Text>
@@ -169,30 +200,38 @@ export default function UploadScreen() {
           </View>
         ) : (
           <View style={styles.actionRow}>
-            <Pressable style={styles.actionCard} onPress={takePhoto} disabled={isPicking}>
+            <Pressable style={[styles.actionCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]} onPress={takePhoto} disabled={isPicking}>
               <View style={styles.actionIconWrap}>
+                {isPicking ? (
+                  <ActivityIndicator color={Brand.gold} />
+                ) : (
                 <SymbolView
                   name={{ ios: 'camera', android: 'photo_camera', web: 'photo_camera' }}
                   size={28}
                   tintColor={Brand.gold}
                   weight="light"
                 />
+                )}
               </View>
-              <Text style={styles.actionLabel}>Take Photo</Text>
-              <Text style={styles.actionSub}>Use your camera</Text>
+              <Text style={[styles.actionLabel, { color: theme.espresso }]}>{isPicking ? 'Preparing photo…' : 'Take Photo'}</Text>
+              <Text style={[styles.actionSub, { color: theme.taupe }]}>Use your camera</Text>
             </Pressable>
 
-            <Pressable style={styles.actionCard} onPress={pickFromLibrary} disabled={isPicking}>
+            <Pressable style={[styles.actionCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]} onPress={pickFromLibrary} disabled={isPicking}>
               <View style={styles.actionIconWrap}>
+                {isPicking ? (
+                  <ActivityIndicator color={Brand.gold} />
+                ) : (
                 <SymbolView
                   name={{ ios: 'photo.on.rectangle', android: 'photo_library', web: 'photo_library' }}
                   size={28}
                   tintColor={Brand.gold}
                   weight="light"
                 />
+                )}
               </View>
-              <Text style={styles.actionLabel}>Choose Photo</Text>
-              <Text style={styles.actionSub}>From your gallery</Text>
+              <Text style={[styles.actionLabel, { color: theme.espresso }]}>{isPicking ? 'Preparing photo…' : 'Choose Photo'}</Text>
+              <Text style={[styles.actionSub, { color: theme.taupe }]}>From your gallery</Text>
             </Pressable>
           </View>
         )}
@@ -203,7 +242,7 @@ export default function UploadScreen() {
           </View>
         )}
 
-        <View style={styles.tipsCard}>
+        <View style={[styles.tipsCard, { backgroundColor: theme.cream }]}>
           <View style={styles.tipsHeader}>
             <SymbolView
               name={{ ios: 'lightbulb', android: 'lightbulb', web: 'lightbulb' }}
@@ -211,7 +250,7 @@ export default function UploadScreen() {
               tintColor={Brand.gold}
               weight="light"
             />
-            <Text style={styles.tipsTitle}>Photo Tips</Text>
+            <Text style={[styles.tipsTitle, { color: theme.espresso }]}>Photo Tips</Text>
           </View>
           {[
             'Shoot from a corner to capture the full room',
@@ -220,13 +259,13 @@ export default function UploadScreen() {
           ].map((tip, i) => (
             <View key={i} style={styles.tipRow}>
               <View style={styles.tipDot} />
-              <Text style={styles.tipText}>{tip}</Text>
+              <Text style={[styles.tipText, { color: theme.taupe }]}>{tip}</Text>
             </View>
           ))}
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Or select a sample room</Text>
+          <Text style={[styles.sectionTitle, { color: theme.walnut }]}>Or select a sample room</Text>
         </View>
 
         <View style={styles.photoGrid}>
@@ -236,7 +275,7 @@ export default function UploadScreen() {
               style={[styles.photoThumb, selectedUri === uri && styles.photoThumbSelected]}
               onPress={() => {
                 setErrorMessage(null);
-                setSelectedUri(uri);
+                setImageUri(uri);
               }}
             >
               <Image source={{ uri }} style={styles.photoImg} contentFit="cover" />
@@ -253,12 +292,16 @@ export default function UploadScreen() {
             </Pressable>
           ))}
         </View>
+        <Text style={[styles.demoNote, { color: theme.taupe }]}>
+          Photos are prepared on this device for preview. Uploading and AI generation require backend integration.
+        </Text>
       </ScrollView>
 
-      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three }]}> 
+      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
         <Button
           label={selectedUri ? 'Continue with this Photo' : 'Select a Photo to Continue'}
           onPress={handleContinue}
+          loading={isPicking}
           disabled={!selectedUri || isPicking}
           fullWidth
           size="lg"
@@ -393,6 +436,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: Spacing.four,
     gap: Spacing.two,
+  },
+  demoNote: {
+    ...Typography.bodySmall,
+    color: Brand.taupe,
+    marginHorizontal: Spacing.four,
+    marginTop: Spacing.three,
+    textAlign: 'center',
   },
   photoThumb: {
     width: '31%',

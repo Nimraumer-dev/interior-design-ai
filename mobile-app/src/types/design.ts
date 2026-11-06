@@ -63,6 +63,7 @@ export interface DesignResult {
   thumbnailUrl: string;
   status: DesignStatus;
   isFavorite: boolean;
+  isDemo?: boolean;
   createdAt: string;
   suggestedFurniture: FurnitureItem[];
 }

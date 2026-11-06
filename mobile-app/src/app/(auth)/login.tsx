@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { Alert } from 'react-native';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,9 +17,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { login, isLoading } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -65,13 +68,13 @@ export default function LoginScreen() {
           </View>
 
           {/* Card */}
-          <View style={styles.card}>
-            <Text style={styles.heading}>Welcome back</Text>
-            <Text style={styles.subheading}>Sign in to your account</Text>
+          <View style={[styles.card, { backgroundColor: theme.ivory }]}>
+            <Text style={[styles.heading, { color: theme.espresso }]}>Welcome back</Text>
+            <Text style={[styles.subheading, { color: theme.taupe }]}>Demo sign-in only; real account services are pending integration.</Text>
 
             {/* Hint */}
-            <View style={styles.hintBox}>
-              <Text style={styles.hintText}>
+            <View style={[styles.hintBox, { backgroundColor: theme.beige }]}>
+              <Text style={[styles.hintText, { color: theme.taupe }]}>
                 Demo: sophia@example.com · password123
               </Text>
             </View>
@@ -85,9 +88,9 @@ export default function LoginScreen() {
 
             {/* Email */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Email Address</Text>
+              <Text style={[styles.label, { color: theme.walnut }]}>Email Address</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.cream, color: theme.espresso, borderColor: theme.border }]}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="your@email.com"
@@ -101,10 +104,10 @@ export default function LoginScreen() {
 
             {/* Password */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={[styles.label, { color: theme.walnut }]}>Password</Text>
               <View style={styles.inputRow}>
                 <TextInput
-                  style={[styles.input, styles.inputFlex]}
+                  style={[styles.input, styles.inputFlex, { backgroundColor: theme.cream, color: theme.espresso, borderColor: theme.border }]}
                   value={password}
                   onChangeText={setPassword}
                   placeholder="••••••••"
@@ -118,18 +121,26 @@ export default function LoginScreen() {
                   style={styles.eyeBtn}
                   accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
                 >
-                  <Text style={styles.eyeText}>{passwordVisible ? 'Hide' : 'Show'}</Text>
+                  <Text style={[styles.eyeText, { color: theme.taupe }]}>{passwordVisible ? 'Hide' : 'Show'}</Text>
                 </Pressable>
               </View>
             </View>
 
             {/* Forgot */}
-            <Pressable style={styles.forgotBtn}>
-              <Text style={styles.forgotText}>Forgot password?</Text>
+            <Pressable
+              style={styles.forgotBtn}
+              onPress={() =>
+                Alert.alert(
+                  'Password reset unavailable',
+                  'Password reset will be available when account services are connected.',
+                )
+              }
+            >
+              <Text style={[styles.forgotText, { color: theme.gold }]}>Forgot password?</Text>
             </Pressable>
 
             <Button
-              label="Sign In"
+              label="Sign In (Demo)"
               onPress={handleLogin}
               loading={isLoading}
               fullWidth
@@ -138,15 +149,15 @@ export default function LoginScreen() {
 
             {/* Divider */}
             <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
+              <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+              <Text style={[styles.dividerText, { color: theme.taupe }]}>or</Text>
+              <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
             </View>
 
             {/* Sign up link */}
             <Pressable onPress={() => router.push('/(auth)/signup')} style={styles.signupRow}>
-              <Text style={styles.signupText}>Don't have an account? </Text>
-              <Text style={styles.signupLink}>Create one</Text>
+              <Text style={[styles.signupText, { color: theme.taupe }]}>Don't have an account? </Text>
+              <Text style={[styles.signupLink, { color: theme.gold }]}>Create one</Text>
             </Pressable>
           </View>
         </ScrollView>

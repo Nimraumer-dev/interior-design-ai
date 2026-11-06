@@ -1,30 +1,32 @@
 import { Image } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FlowHeader } from '@/components/design/flow-header';
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { MOCK_STYLES } from '@/services/mock-data';
+import { useDesignStore } from '@/stores/design-store';
 
 export default function ChooseStyleScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ roomType?: string; imageUri?: string; styleId?: string }>();
-  const [selectedId, setSelectedId] = useState<string>(params.styleId ?? '');
+  const theme = useTheme();
+  const selectedStyleId = useDesignStore(state => state.styleId);
+  const preferredStyleId = useDesignStore(state => state.preferredStyleId);
+  const setStyleId = useDesignStore(state => state.setStyleId);
+  const selectedId = selectedStyleId ?? preferredStyleId;
 
   function handleContinue() {
-    if (!selectedId) return;
-    router.push({
-      pathname: '/design/budget',
-      params: { ...params, styleId: selectedId },
-    });
+    if (!MOCK_STYLES.some(style => style.id === selectedId)) return;
+    setStyleId(selectedId);
+    router.push('/design/budget');
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + Spacing.three }]}>
+    <View style={[styles.root, { paddingTop: insets.top + Spacing.three, backgroundColor: theme.ivory }]}>
       <FlowHeader
         title="Choose a Style"
         subtitle="Select the aesthetic for your redesign."
@@ -43,7 +45,7 @@ export default function ChooseStyleScreen() {
               <Pressable
                 key={style.id}
                 style={[styles.card, isSelected && styles.cardSelected]}
-                onPress={() => setSelectedId(style.id)}
+                onPress={() => setStyleId(style.id)}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: isSelected }}
               >
@@ -61,13 +63,13 @@ export default function ChooseStyleScreen() {
                   </View>
                 )}
 
-                <View style={styles.cardContent}>
-                  <Text style={styles.cardName}>{style.name}</Text>
-                  <Text style={styles.cardDesc} numberOfLines={2}>{style.description}</Text>
+                <View style={[styles.cardContent, { backgroundColor: theme.surfaceElevated }]}>
+                  <Text style={[styles.cardName, { color: theme.espresso }]}>{style.name}</Text>
+                  <Text style={[styles.cardDesc, { color: theme.taupe }]} numberOfLines={2}>{style.description}</Text>
                   <View style={styles.tagRow}>
                     {style.tags.map(tag => (
-                      <View key={tag} style={styles.tag}>
-                        <Text style={styles.tagText}>{tag}</Text>
+                      <View key={tag} style={[styles.tag, { backgroundColor: theme.beige }]}>
+                        <Text style={[styles.tagText, { color: theme.taupe }]}>{tag}</Text>
                       </View>
                     ))}
                   </View>
@@ -78,7 +80,7 @@ export default function ChooseStyleScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three }]}>
+      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
         <Button
           label={selectedId ? 'Continue' : 'Select a Style to Continue'}
           onPress={handleContinue}
