@@ -5,6 +5,7 @@ from .config import USE_MOCK, MAX_SIDE
 _pipe = None
 _mlsd = None
 
+
 def _fit(img):
     img = img.convert("RGB")
     w, h = img.size
@@ -14,6 +15,7 @@ def _fit(img):
     w = max(64, (w // 64) * 64)
     h = max(64, (h // 64) * 64)
     return img.resize((w, h))
+
 
 def load_model():
     """Server start par ek baar call hota hai."""
@@ -33,6 +35,7 @@ def load_model():
     _pipe.enable_attention_slicing()
     _mlsd = MLSDdetector.from_pretrained("lllyasviel/Annotators")
 
+
 def run_redesign(image, prompt, negative, seed):
     image = _fit(image)
     if USE_MOCK:
@@ -42,12 +45,13 @@ def run_redesign(image, prompt, negative, seed):
     w, h = image.size
     control = _mlsd(image, detect_resolution=512, image_resolution=max(w, h))
     control = control.convert("RGB").resize((w, h))
-        gen = torch.Generator("cuda").manual_seed(seed)
+    gen = torch.Generator("cuda").manual_seed(seed)
     return _pipe(prompt=prompt, negative_prompt=negative,
                  image=image, control_image=control,
                  strength=0.85, controlnet_conditioning_scale=0.9,
                  guidance_scale=7.5, num_inference_steps=30,
                  generator=gen).images[0]
+
 
 def to_base64(img):
     buf = io.BytesIO()
