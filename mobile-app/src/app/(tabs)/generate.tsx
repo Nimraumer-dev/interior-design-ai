@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
 import { MOCK_STYLES } from '@/services/mock-data';
 import { useDesignStore } from '@/stores/design-store';
 import { RoomType } from '@/types/design';
@@ -56,6 +57,7 @@ const ROOM_TYPES: { id: RoomType; label: string; icon: RoomIconName }[] = [
 export default function GenerateScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { contentStyle, columns, horizontalPadding, isDesktop } = useResponsiveLayout();
   const { styleId: routeStyleId } = useLocalSearchParams<{ styleId?: string }>();
   const selectedRoom = useDesignStore(state => state.roomType);
   const selectedStyleId = useDesignStore(state => state.styleId);
@@ -77,22 +79,22 @@ export default function GenerateScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: theme.border }]}>
-        <Text style={styles.overline}>DESIGN PREVIEW</Text>
+      <View style={[styles.header, contentStyle, { borderBottomColor: theme.border, paddingHorizontal: horizontalPadding }]}>
+        <Text style={styles.overline}>NEW DESIGN</Text>
         <Text style={[styles.heading, { color: theme.espresso }]}>New Design</Text>
         <Text style={[styles.subheading, { color: theme.taupe }]}>
-          Choose a room and style. You can try the design flow with local demo content.
+          Choose a room and style for your redesign.
         </Text>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+        contentContainerStyle={[contentStyle, { paddingBottom: insets.bottom + 120 }]}
       >
         {/* ── Room type ──────────────────────────────────────────────── */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: theme.walnut }]}>Select Room Type</Text>
-          <View style={styles.roomGrid}>
+          <View style={[styles.roomGrid, { gap: Spacing.two }]}>
             {ROOM_TYPES.map(room => {
               const isSelected = selectedRoom === room.id;
               return (
@@ -100,6 +102,7 @@ export default function GenerateScreen() {
                   key={room.id}
                   style={[
                     styles.roomChip,
+                    { width: `${100 / columns - 2}%` },
                     { backgroundColor: theme.surfaceElevated, borderColor: theme.border },
                     isSelected && { backgroundColor: theme.cream, borderColor: theme.gold },
                   ]}
@@ -130,13 +133,13 @@ export default function GenerateScreen() {
         {/* ── Style picker ───────────────────────────────────────────── */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: theme.walnut }]}>Choose a Style</Text>
-          <View style={styles.stylesGrid}>
+          <View style={[styles.stylesGrid, { flexDirection: 'row', flexWrap: 'wrap' }]}>
             {MOCK_STYLES.map(style => {
               const isSelected = selectedStyle === style.id;
               return (
                 <Pressable
                   key={style.id}
-                  style={[styles.styleCard, isSelected && styles.styleCardSelected]}
+                  style={[styles.styleCard, { width: `${100 / columns - 2}%` }, isSelected && styles.styleCardSelected]}
                   onPress={() => setStyleId(style.id)}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSelected }}
@@ -175,7 +178,12 @@ export default function GenerateScreen() {
       </ScrollView>
 
       {/* ── CTA ──────────────────────────────────────────────────────── */}
-      <View style={[styles.ctaBar, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
+      <View style={[styles.ctaBar, contentStyle, {
+        bottom: isDesktop ? 0 : insets.bottom + 56,
+        paddingBottom: insets.bottom + Spacing.three,
+        backgroundColor: theme.ivory,
+        borderTopColor: theme.border,
+      }]}>
         <Button
           label={canProceed ? 'Upload Room Photo' : 'Select Room & Style to Continue'}
           onPress={() => canProceed && router.push('/design/upload')}
@@ -215,7 +223,6 @@ const styles = StyleSheet.create({
   },
   roomGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   roomChip: {
-    width: '30%',
     aspectRatio: 1,
     borderRadius: Radius.md,
     backgroundColor: Brand.white,
@@ -231,7 +238,7 @@ const styles = StyleSheet.create({
   roomLabelSelected: { color: Brand.espresso, fontWeight: '600' },
   stylesGrid: { gap: Spacing.two },
   styleCard: {
-    height: 120,
+    height: 160,
     borderRadius: Radius.lg,
     overflow: 'hidden',
     borderWidth: 2,
@@ -284,5 +291,7 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.ivory,
     borderTopWidth: 1,
     borderTopColor: Brand.beige,
+    maxWidth: 720,
+    alignSelf: 'center',
   },
 });

@@ -3,7 +3,7 @@ const { z } = require('zod');
 const categories = ['sofa', 'bed', 'table', 'chair', 'wardrobe', 'lamp', 'rug', 'decor'];
 const roomTypes = ['living_room', 'bedroom', 'kitchen', 'dining_room', 'bathroom', 'office', 'other'];
 const styles = ['modern', 'minimalist', 'scandinavian', 'industrial', 'bohemian', 'traditional', 'contemporary', 'coastal', 'farmhouse'];
-const budgetRanges = ['low', 'medium', 'high'];
+const budgetRanges = ['low', 'medium', 'high', 'ultra'];
 const objectIdPattern = /^[a-f\d]{24}$/i;
 
 const objectId = z.string().regex(objectIdPattern);

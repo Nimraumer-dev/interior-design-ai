@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-import { MOCK_DESIGNS, MOCK_STYLES, MOCK_USER } from '@/services/mock-data';
+import { MOCK_STYLES, MOCK_USER } from '@/services/mock-data';
 import { deleteDesignOriginalImage } from '@/services/local-design-images';
 import { BudgetTier, DesignResult, RoomType } from '@/types/design';
 import { AppearancePreference } from '@/types/preferences';
@@ -13,6 +14,7 @@ interface DesignStore {
   budgetTier: BudgetTier | null;
   imageUri: string | null;
   designs: DesignResult[];
+  savedDesignIds: string[];
   displayName: string;
   preferredStyleId: string;
   notificationsEnabled: boolean;
@@ -25,6 +27,8 @@ interface DesignStore {
   setImageUri: (imageUri: string | null) => void;
   resetDesignFlow: () => void;
   addDesign: (design: DesignResult) => void;
+  replaceDesigns: (designs: DesignResult[]) => void;
+  clearDesigns: () => void;
   toggleDesignSaved: (designId: string) => void;
   deleteDesign: (designId: string) => Promise<void>;
   setDisplayName: (displayName: string) => void;
@@ -36,14 +40,17 @@ interface DesignStore {
 
 type PersistedDesignState = Pick<
   DesignStore,
-  'designs' | 'displayName' | 'preferredStyleId' | 'notificationsEnabled' | 'appearancePreference'
+  'savedDesignIds' | 'displayName' | 'preferredStyleId' | 'notificationsEnabled' | 'appearancePreference'
 >;
 
-const initialDesigns = () => MOCK_DESIGNS.map(design => ({ ...design }));
-const serverStorage: StateStorage = {
-  getItem: async () => null,
-  setItem: async () => undefined,
-  removeItem: async () => undefined,
+const browserStorage: StateStorage = {
+  getItem: name => typeof window === 'undefined' ? null : window.localStorage.getItem(name),
+  setItem: (name, value) => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(name, value);
+  },
+  removeItem: name => {
+    if (typeof window !== 'undefined') window.localStorage.removeItem(name);
+  },
 };
 
 export const useDesignStore = create<DesignStore>()(persist((set) => ({
@@ -51,7 +58,8 @@ export const useDesignStore = create<DesignStore>()(persist((set) => ({
   styleId: null,
   budgetTier: null,
   imageUri: null,
-  designs: initialDesigns(),
+  designs: [],
+  savedDesignIds: [],
   displayName: MOCK_USER.displayName,
   preferredStyleId: MOCK_STYLES[0].id,
   notificationsEnabled: true,
@@ -64,16 +72,36 @@ export const useDesignStore = create<DesignStore>()(persist((set) => ({
   setImageUri: imageUri => set({ imageUri }),
   resetDesignFlow: () => set({ roomType: null, styleId: null, budgetTier: null, imageUri: null }),
   addDesign: design =>
-    set(state => ({ designs: [design, ...state.designs.filter(item => item.id !== design.id)] })),
-  toggleDesignSaved: designId =>
     set(state => ({
-      designs: state.designs.map(design =>
-        design.id === designId ? { ...design, isFavorite: !design.isFavorite } : design,
-      ),
+      designs: [
+        { ...design, isFavorite: state.savedDesignIds.includes(design.id) || design.isFavorite },
+        ...state.designs.filter(item => item.id !== design.id),
+      ],
     })),
+  replaceDesigns: designs =>
+    set({
+      designs,
+      savedDesignIds: designs.filter(design => design.isFavorite).map(design => design.id),
+    }),
+  clearDesigns: () => set({ designs: [], savedDesignIds: [] }),
+  toggleDesignSaved: designId =>
+    set(state => {
+      const saved = state.savedDesignIds.includes(designId);
+      return {
+        savedDesignIds: saved
+          ? state.savedDesignIds.filter(id => id !== designId)
+          : [...state.savedDesignIds, designId],
+        designs: state.designs.map(design =>
+          design.id === designId ? { ...design, isFavorite: !saved } : design,
+        ),
+      };
+    }),
   deleteDesign: async designId => {
     const design = useDesignStore.getState().designs.find(item => item.id === designId);
-    set(state => ({ designs: state.designs.filter(item => item.id !== designId) }));
+    set(state => ({
+      designs: state.designs.filter(item => item.id !== designId),
+      savedDesignIds: state.savedDesignIds.filter(id => id !== designId),
+    }));
     if (design) await deleteDesignOriginalImage(design.originalImageUrl);
   },
   setDisplayName: displayName => set({ displayName }),
@@ -83,24 +111,43 @@ export const useDesignStore = create<DesignStore>()(persist((set) => ({
   setHydrationStatus: (hasHydrated, hydrationError) => set({ hasHydrated, hydrationError }),
 }), {
   name: 'atelier.local-designs-and-preferences',
-  storage: createJSONStorage(() => typeof window === 'undefined' ? serverStorage : AsyncStorage),
-  version: 1,
+  storage: createJSONStorage(() => Platform.OS === 'web' ? browserStorage : AsyncStorage),
+  version: 3,
   skipHydration: true,
+  migrate: (persistedState, version) => {
+    const persisted = typeof persistedState === 'object' && persistedState !== null
+      ? persistedState as Record<string, unknown>
+      : {};
+    const savedDesignIds = Array.isArray(persisted.savedDesignIds)
+      ? persisted.savedDesignIds.filter((id): id is string => typeof id === 'string')
+      : [];
+    return {
+      savedDesignIds: version < 3 ? [] : savedDesignIds,
+      displayName: typeof persisted.displayName === 'string' ? persisted.displayName : MOCK_USER.displayName,
+      preferredStyleId: typeof persisted.preferredStyleId === 'string'
+        ? persisted.preferredStyleId
+        : MOCK_STYLES[0].id,
+      notificationsEnabled: typeof persisted.notificationsEnabled === 'boolean'
+        ? persisted.notificationsEnabled
+        : true,
+      appearancePreference: persisted.appearancePreference === 'light' ||
+        persisted.appearancePreference === 'dark' ||
+        persisted.appearancePreference === 'system'
+        ? persisted.appearancePreference
+        : 'system',
+    };
+  },
   partialize: (state): PersistedDesignState => ({
-    designs: state.designs,
+    savedDesignIds: state.savedDesignIds,
     displayName: state.displayName,
     preferredStyleId: state.preferredStyleId,
     notificationsEnabled: state.notificationsEnabled,
     appearancePreference: state.appearancePreference,
   }),
-  onRehydrateStorage: state => (hydratedState, error) => {
-    state?.setHydrationStatus(
+  onRehydrateStorage: () => (_hydratedState, error) => {
+    useDesignStore.getState().setHydrationStatus(
       true,
-      error ? 'Saved designs and preferences could not be loaded from this device.' : null,
-    );
-    hydratedState?.setHydrationStatus(
-      true,
-      error ? 'Saved designs and preferences could not be loaded from this device.' : null,
+      error ? 'Saved designs and preferences could not be loaded from this device. Retry to try again.' : null,
     );
   },
 }));

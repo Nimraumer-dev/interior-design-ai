@@ -2,7 +2,7 @@ import { GLView } from 'expo-gl';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   PanResponder,
   Platform,
@@ -18,16 +18,11 @@ import * as THREE from 'three';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
 import { useTheme } from '@/hooks/use-theme';
 import { useDesignStore } from '@/stores/design-store';
 
 type IconDef = { ios: string; android: string; web: string };
-
-const CONTROL_ICONS: IconDef[] = [
-  { ios: 'arrow.up', android: 'arrow_upward', web: 'arrow_upward' },
-  { ios: 'arrow.clockwise', android: 'rotate_right', web: 'rotate_right' },
-  { ios: 'plus.magnifyingglass', android: 'zoom_in', web: 'zoom_in' },
-];
 
 const FEATURES: { icon: IconDef; label: string }[] = [
   { icon: { ios: 'move.3d', android: 'open_with', web: 'open_with' }, label: 'Drag to rotate the room' },
@@ -40,6 +35,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 export default function Preview3DScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { contentStyle, isDesktop } = useResponsiveLayout();
   const { resultId } = useLocalSearchParams<{ resultId?: string }>();
   const design = useDesignStore(state => state.designs.find(item => item.id === resultId));
   const useNative3D = Platform.OS !== 'web';
@@ -69,9 +65,10 @@ export default function Preview3DScreen() {
     );
   }, []);
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
+  // PanResponder reads these refs only from deferred gesture callbacks.
+  // eslint-disable-next-line react-hooks/refs
+  const [panResponder] = useState(() =>
+    PanResponder.create({
         onMoveShouldSetPanResponder: () => true,
         onPanResponderMove: (_, gesture) => {
           cameraStateRef.current.yaw -= gesture.dx * 0.008;
@@ -82,7 +79,6 @@ export default function Preview3DScreen() {
           );
         },
       }),
-    [],
   );
 
   const onContextCreate = useCallback((gl: any) => {
@@ -267,7 +263,7 @@ export default function Preview3DScreen() {
   }
 
   const previewContent = sceneFallback || !useNative3D ? (
-    <View style={styles.previewArea}>
+    <View style={[styles.previewArea, isDesktop && styles.previewAreaDesktop]}>
       <Image source={{ uri: design.generatedImageUrl }} style={styles.previewImage} contentFit="cover" />
       <View style={styles.previewOverlay} />
       <View style={styles.badge}>
@@ -276,7 +272,7 @@ export default function Preview3DScreen() {
       </View>
     </View>
   ) : (
-    <View style={[styles.previewArea, styles.glSurface]} {...panResponder.panHandlers}>
+    <View style={[styles.previewArea, isDesktop && styles.previewAreaDesktop, styles.glSurface]} {...panResponder.panHandlers}>
       <GLView style={styles.glView} onContextCreate={onContextCreate} />
       <View style={styles.previewOverlay} pointerEvents="none" />
       <View style={styles.badge}>
@@ -299,7 +295,7 @@ export default function Preview3DScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
-      <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
+      <View style={[styles.topBar, contentStyle, { borderBottomColor: theme.border }]}>
         <Pressable style={[styles.iconBtn, { backgroundColor: theme.beige }]} onPress={() => router.back()} accessibilityLabel="Go back">
           <SymbolView name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }} size={18} tintColor={theme.espresso} weight="light" />
         </Pressable>
@@ -307,9 +303,11 @@ export default function Preview3DScreen() {
         <View style={styles.iconBtn} />
       </View>
 
-      {previewContent}
+      <View style={[styles.previewContainer, contentStyle]}>
+        {previewContent}
+      </View>
 
-      <ScrollView style={styles.info} contentContainerStyle={{ gap: Spacing.three, paddingBottom: insets.bottom + 120 }}>
+      <ScrollView style={[styles.info, contentStyle, isDesktop && styles.infoDesktop]} contentContainerStyle={{ gap: Spacing.three, paddingBottom: insets.bottom + 120 }}>
         <Text style={[styles.heading, { color: theme.espresso }]}>Immersive 3D Walkthrough</Text>
         <Text style={[styles.body, { color: theme.taupe }]}>
           Explore the room using drag-to-rotate controls and zoom buttons. This preview uses a native 3D scene when available, and falls back gracefully if the environment cannot support OpenGL.
@@ -328,7 +326,7 @@ export default function Preview3DScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
+      <View style={[styles.cta, contentStyle, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
         <Button label={sceneFallback ? 'Back to Result' : 'Ready to Review'} onPress={() => router.back()} fullWidth size="lg" />
         <Button label="Back to Result" variant="secondary" onPress={() => router.back()} fullWidth size="md" />
       </View>
@@ -348,7 +346,9 @@ const styles = StyleSheet.create({
   },
   iconBtn: { width: 36, height: 36, borderRadius: Radius.full, backgroundColor: Brand.beige, alignItems: 'center', justifyContent: 'center' },
   topTitle: { ...Typography.labelLarge, color: Brand.espresso, fontWeight: '600' },
+  previewContainer: { width: '100%', alignSelf: 'center' },
   previewArea: { height: 280, position: 'relative' },
+  previewAreaDesktop: { height: 500 },
   glSurface: { overflow: 'hidden', backgroundColor: '#F8F5EF' },
   glView: { flex: 1 },
   previewImage: { width: '100%', height: '100%' },
@@ -375,6 +375,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(182,154,112,0.4)',
   },
   info: { flex: 1, padding: Spacing.four },
+  infoDesktop: { paddingHorizontal: Spacing.six },
   heading: { fontSize: 24, fontWeight: '300', color: Brand.espresso, fontFamily: Fonts?.serif ?? 'serif' },
   body: { ...Typography.bodyMedium, color: Brand.taupe, lineHeight: 22 },
   featureList: {
@@ -387,5 +388,8 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 0, left: 0, right: 0,
     paddingHorizontal: Spacing.four, paddingTop: Spacing.three, gap: Spacing.two,
     backgroundColor: Brand.ivory, borderTopWidth: 1, borderTopColor: Brand.beige,
+    alignSelf: 'center',
+    maxWidth: 720,
+    width: '100%',
   },
 });

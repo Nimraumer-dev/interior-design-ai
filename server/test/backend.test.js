@@ -71,6 +71,14 @@ function createDesignRequest(token, key, buffer) {
 }
 
 test('auth, ownership, image validation and one-time generation charging', async () => {
+  const { designFields } = require('../src/utils/validation');
+  assert.equal(designFields.safeParse({
+    roomType: 'living_room',
+    style: 'scandinavian',
+    budgetRange: 'ultra',
+    colors: [],
+    numVariants: 1
+  }).success, true);
   assert.deepEqual((await request(app).get('/health')).body, { status: 'ok' });
   const first = await register('first@example.test');
   const second = await register('second@example.test');
@@ -81,6 +89,12 @@ test('auth, ownership, image validation and one-time generation charging', async
   assert.equal((await request(app).get('/api/auth/me')).status, 401);
   assert.equal((await request(app).post('/api/auth/login')
     .send({ email: 'first@example.test', password: 'incorrect' })).status, 401);
+  const login = await request(app).post('/api/auth/login')
+    .send({ email: 'first@example.test', password: 'correct horse battery staple' });
+  assert.equal(login.status, 200);
+  assert.ok(login.body.accessToken);
+  assert.equal((await request(app).get('/api/auth/me')
+    .set('Authorization', `Bearer ${login.body.accessToken}`)).body.user.email, 'first@example.test');
   assert.equal((await request(app).get('/api/auth/me')
     .set('Authorization', `Bearer ${first.accessToken}`)).body.user.availableCredits, 1);
   assert.equal((await request(app).post('/api/admin/catalog')
@@ -104,6 +118,18 @@ test('auth, ownership, image validation and one-time generation charging', async
   assert.equal(result.body.design.status, 'completed');
   assert.equal(result.body.design.isMock, true);
   assert.equal(result.body.design.results.length, 2);
+  assert.ok(result.body.design.originalImageUrl);
+  const saved = await request(app).patch(`/api/designs/${created.body.designId}/favorite`)
+    .set('Authorization', `Bearer ${first.accessToken}`)
+    .send({ saved: true });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.design.isFavorite, true);
+  const history = await request(app).get('/api/designs')
+    .set('Authorization', `Bearer ${first.accessToken}`);
+  assert.equal(history.body.designs[0].isFavorite, true);
+  assert.equal((await request(app).patch(`/api/designs/${created.body.designId}/favorite`)
+    .set('Authorization', `Bearer ${second.accessToken}`)
+    .send({ saved: true })).status, 404);
   const profile = await request(app).get('/api/auth/me')
     .set('Authorization', `Bearer ${first.accessToken}`);
   assert.equal(profile.body.user.credits, 0);
@@ -119,7 +145,14 @@ test('auth, ownership, image validation and one-time generation charging', async
   const signature = new URLSearchParams(localLink.search).get('signature');
   assert.equal(storage.verifyLocalSignature(key, expires, signature), true);
   assert.equal(storage.verifyLocalSignature(key, expires, '0'.repeat(64)), false);
-  assert.equal((await request(app).get('/api/files').query({ key, expires, signature })).status, 200);
+  const originalLink = new URL(result.body.design.originalImageUrl);
+  const originalKey = new URLSearchParams(originalLink.search).get('key');
+  const originalExpires = Number(new URLSearchParams(originalLink.search).get('expires'));
+  const originalSignature = new URLSearchParams(originalLink.search).get('signature');
+  assert.equal(storage.verifyLocalSignature(originalKey, originalExpires, originalSignature), true);
+  const fileResponse = await request(app).get('/api/files').query({ key, expires, signature });
+  assert.equal(fileResponse.status, 200);
+  assert.equal(fileResponse.headers['cross-origin-resource-policy'], 'cross-origin');
   assert.equal((await request(app).get('/api/files').query({ key, expires, signature: '0'.repeat(64) })).status, 403);
   const file = await storage.readObject(key);
   assert.equal(file.contentType, 'image/jpeg');

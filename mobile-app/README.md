@@ -1,56 +1,43 @@
-# Welcome to your Expo app 👋
+# Mobile app
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Run with Expo Go
 
-## Get started
+Set `EXPO_PUBLIC_API_URL` in the ignored local `.env` file to the backend computer's LAN URL, without `/api`:
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```env
+EXPO_PUBLIC_API_URL=http://192.168.0.103:5000
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+The app adds `/api` automatically. If the computer's IP changes, update this value. The phone and computer must be on the same Wi-Fi, and Windows Firewall must allow inbound TCP ports `8081` (Expo) and `5000` (API).
 
-### Other setup steps
+Run Metro from CMD:
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```cmd
+cd /d C:\Users\Cc\interior-design-ai\mobile-app
+npm install
+npm start -- --go --lan --port 8081
+```
 
-## Learn more
+Run the API and worker in separate terminals from `server`; follow the local database setup in [`../server/README.md`](../server/README.md). Set the API server's `PUBLIC_BASE_URL` to the same LAN URL and restart the API and worker after changing it. The API needs to be reachable at `/health`.
 
-To learn more about developing your project with Expo, look at the following resources:
+On Windows, start or reuse the API, worker, and Expo together from the repository root:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\server\scripts\start-local-demo.ps1
+```
 
-## Join the community
+The script checks API and Expo health and reuses their existing ports and any running design worker. It opens separate processes only for missing services and does not read, print, or modify either `.env` file.
 
-Join our community of developers creating universal apps.
+Restart Expo after changing `.env`; Expo public environment variables are embedded at bundle time.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Connected features
+
+- Signup and login call `/api/auth/register` and `/api/auth/login`; account restoration calls `/api/auth/me`.
+- Native access tokens are stored with Expo SecureStore (iOS Keychain / Android Keystore). Web previews use tab-scoped `sessionStorage`.
+- Photo uploads use authenticated multipart requests and an idempotency key. The app polls the durable design job until success or failure.
+- Design history and deletion are synced with `/api/designs`. Signed image URLs are kept in memory only and refreshed when opening a design.
+- Saved/favourite designs are synced to the signed-in account. Design history includes signed original-image URLs for comparison; result URLs are refreshed from the API when a design is opened.
+- Furniture recommendations and PKR cost estimates use backend catalogue data. The 3D preview remains a clearly labeled local demo and is not generated from the uploaded room photo.
+- With backend `AI_MOCK=true`, results are labelled **Mock AI** in the app. No AI credentials belong in this app or its `.env`.
+
+Email/password reset, retailer checkout and persistent cross-device favourites are not provided by the current API.

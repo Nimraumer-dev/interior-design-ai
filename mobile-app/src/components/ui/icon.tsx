@@ -1,9 +1,5 @@
-import { SymbolView } from 'expo-symbols';
-import type { SFSymbol } from 'expo-symbols';
-import type { AndroidSymbol } from 'expo-symbols';
+import { SymbolView, type AndroidSymbol, type SFSymbol, type SymbolWeight } from 'expo-symbols';
 import type { ColorValue } from 'react-native';
-
-import type { SymbolWeight } from 'expo-symbols';
 
 export interface IconProps {
   ios: string;

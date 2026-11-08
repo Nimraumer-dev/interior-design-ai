@@ -8,9 +8,13 @@ export interface User {
   displayName: string;
   avatarUrl?: string;
   provider: AuthProvider;
-  createdAt: string;
-  generationsUsed: number;
-  generationsLimit: number;
+  createdAt?: string;
+  role?: 'user' | 'admin';
+  credits?: number;
+  reservedCredits?: number;
+  availableCredits?: number;
+  generationsUsed?: number;
+  generationsLimit?: number;
   plan: UserPlan;
 }
 

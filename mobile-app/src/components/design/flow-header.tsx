@@ -3,6 +3,7 @@ import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Fonts, Radius, Spacing, Typography } from '@/constants/theme';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
 import { useTheme } from '@/hooks/use-theme';
 
 interface FlowHeaderProps {
@@ -15,8 +16,9 @@ interface FlowHeaderProps {
 
 export function FlowHeader({ title, subtitle, step, totalSteps, onBack }: FlowHeaderProps) {
   const theme = useTheme();
+  const { contentStyle } = useResponsiveLayout();
   return (
-    <View style={[styles.container, { borderBottomColor: theme.border }]}>
+    <View style={[styles.container, contentStyle, { borderBottomColor: theme.border }]}>
       <View style={styles.topRow}>
         <Pressable
           style={[styles.backBtn, { backgroundColor: theme.beige }]}

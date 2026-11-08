@@ -13,8 +13,28 @@ export function formatRelativeDate(iso: string): string {
   return formatDate(iso);
 }
 
-export function formatPrice(usd: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(usd);
+export function formatPrice(amount: number, currency: 'USD' | 'PKR' = 'USD'): string {
+  return new Intl.NumberFormat(currency === 'PKR' ? 'en-PK' : 'en-US', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+export function furniturePriceAmount(item: {
+  priceUsd: number;
+  pricePaisa?: number;
+  currency?: 'USD' | 'PKR';
+}): number {
+  return item.currency === 'PKR' ? (item.pricePaisa ?? 0) / 100 : item.priceUsd;
+}
+
+export function furniturePriceLabel(item: {
+  priceUsd: number;
+  pricePaisa?: number;
+  currency?: 'USD' | 'PKR';
+}): string {
+  return formatPrice(furniturePriceAmount(item), item.currency ?? 'USD');
 }
 
 export function formatFileSize(bytes: number): string {

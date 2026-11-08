@@ -12,8 +12,8 @@ export async function persistDesignOriginalImage(uri: string): Promise<string> {
   return destination.uri;
 }
 
-export async function deleteDesignOriginalImage(uri: string): Promise<void> {
-  if (Platform.OS === 'web' || !uri.startsWith('file://')) return;
+export async function deleteDesignOriginalImage(uri: string | null): Promise<void> {
+  if (!uri || Platform.OS === 'web' || !uri.startsWith('file://')) return;
   const file = new File(uri);
   if (file.name.startsWith(DESIGN_IMAGE_PREFIX) && file.exists) {
     await file.delete();

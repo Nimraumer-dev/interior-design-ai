@@ -1,23 +1,21 @@
 import { router } from 'expo-router';
-import { useEffect, useRef } from 'react';
-import { Animated, Dimensions, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { Brand, Fonts, Typography } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 
-const { height } = Dimensions.get('window');
-
 export default function SplashScreen() {
-  const { isAuthenticated } = useAuth();
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(0.82)).current;
-  const taglineOpacity = useRef(new Animated.Value(0)).current;
-  const dividerWidth = useRef(new Animated.Value(0)).current;
-  const isAuthenticatedRef = useRef(isAuthenticated);
-  isAuthenticatedRef.current = isAuthenticated;
+  const { height, width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
+  const { isAuthenticated, isLoading } = useAuth();
+  const [animationFinished, setAnimationFinished] = useState(false);
+  const [logoOpacity] = useState(() => new Animated.Value(0));
+  const [logoScale] = useState(() => new Animated.Value(0.82));
+  const [taglineOpacity] = useState(() => new Animated.Value(0));
+  const [dividerWidth] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
-    let redirectTimeout: ReturnType<typeof setTimeout> | undefined;
     Animated.sequence([
       Animated.parallel([
         Animated.timing(logoOpacity, { toValue: 1, duration: 900, useNativeDriver: true }),
@@ -25,24 +23,22 @@ export default function SplashScreen() {
       ]),
       Animated.timing(dividerWidth, { toValue: 48, duration: 500, useNativeDriver: false }),
       Animated.timing(taglineOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
-    ]).start(() => {
-      redirectTimeout = setTimeout(() => {
-        router.replace(isAuthenticatedRef.current ? '/(tabs)' : '/(auth)/onboarding');
-      }, 1200);
-    });
+    ]).start(() => setAnimationFinished(true));
 
-    return () => {
-      if (redirectTimeout) clearTimeout(redirectTimeout);
-    };
-  }, []);
+  }, [dividerWidth, logoOpacity, logoScale, taglineOpacity]);
+
+  useEffect(() => {
+    if (!animationFinished || isLoading) return;
+    router.replace(isAuthenticated ? '/(tabs)' : '/(auth)/onboarding');
+  }, [animationFinished, isAuthenticated, isLoading]);
 
   return (
     <View style={styles.container}>
       {/* Warm gradient background via layered views */}
-      <View style={styles.bgTop} />
-      <View style={styles.bgBottom} />
+      <View style={[styles.bgTop, { borderBottomLeftRadius: height * 0.6, borderBottomRightRadius: height * 0.6, top: -height * 0.25 }]} />
+      <View style={[styles.bgBottom, { top: height * 0.5 }]} />
 
-      <Animated.View style={[styles.content, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
+      <Animated.View style={[styles.content, { opacity: logoOpacity, transform: [{ scale: isDesktop ? 1.12 : 1 }] }]}>
         {/* Monogram mark */}
         <View style={styles.monogramRing}>
           <View style={styles.monogramInner}>
@@ -50,7 +46,7 @@ export default function SplashScreen() {
           </View>
         </View>
 
-        <Animated.Text style={styles.wordmark}>ATELIERА</Animated.Text>
+        <Animated.Text style={styles.wordmark}>ATELIER</Animated.Text>
 
         <Animated.View style={[styles.divider, { width: dividerWidth }]} />
 
@@ -73,14 +69,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: Brand.walnut,
     opacity: 0.55,
-    borderBottomLeftRadius: height * 0.6,
-    borderBottomRightRadius: height * 0.6,
-    top: -height * 0.25,
   },
   bgBottom: {
     ...StyleSheet.absoluteFill,
     backgroundColor: Brand.espresso,
-    top: height * 0.5,
   },
   content: {
     alignItems: 'center',

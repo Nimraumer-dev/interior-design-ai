@@ -16,8 +16,6 @@ export interface BudgetOption {
   label: string;
   description: string;
   rangeLabel: string;
-  minUsd: number;
-  maxUsd: number;
 }
 
 export interface StyleOption {
@@ -34,6 +32,8 @@ export interface FurnitureItem {
   brand: string;
   category: string;
   priceUsd: number;
+  pricePaisa?: number;
+  currency?: 'USD' | 'PKR';
   imageUrl: string;
   productUrl?: string;
   material: string;
@@ -58,12 +58,14 @@ export interface DesignResult {
   styleId: string;
   styleName: string;
   budgetTier: BudgetTier;
-  originalImageUrl: string;
+  originalImageUrl: string | null;
   generatedImageUrl: string;
   thumbnailUrl: string;
   status: DesignStatus;
   isFavorite: boolean;
   isDemo?: boolean;
+  isMock?: boolean;
+  errorMessage?: string | null;
   createdAt: string;
   suggestedFurniture: FurnitureItem[];
 }

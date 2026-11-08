@@ -8,12 +8,14 @@ import { FlowHeader } from '@/components/design/flow-header';
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
 import { MOCK_STYLES } from '@/services/mock-data';
 import { useDesignStore } from '@/stores/design-store';
 
 export default function ChooseStyleScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { columns, contentStyle, isTablet, isDesktop } = useResponsiveLayout();
   const selectedStyleId = useDesignStore(state => state.styleId);
   const preferredStyleId = useDesignStore(state => state.preferredStyleId);
   const setStyleId = useDesignStore(state => state.setStyleId);
@@ -36,20 +38,20 @@ export default function ChooseStyleScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 120, paddingTop: Spacing.three }}
+        contentContainerStyle={[contentStyle, { paddingBottom: insets.bottom + 120, paddingTop: Spacing.three }]}
       >
-        <View style={styles.grid}>
+        <View style={[styles.grid, { flexDirection: 'row', flexWrap: 'wrap' }]}>
           {MOCK_STYLES.map(style => {
             const isSelected = selectedId === style.id;
             return (
               <Pressable
                 key={style.id}
-                style={[styles.card, isSelected && styles.cardSelected]}
+                style={[styles.card, { width: `${100 / columns - 2}%` }, isSelected && styles.cardSelected]}
                 onPress={() => setStyleId(style.id)}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: isSelected }}
               >
-                <Image source={{ uri: style.previewImageUrl }} style={styles.cardImage} contentFit="cover" />
+                <Image source={{ uri: style.previewImageUrl }} style={[styles.cardImage, { height: isDesktop ? 230 : isTablet ? 190 : 150 }]} contentFit="cover" />
                 <View style={[styles.cardOverlay, isSelected && styles.cardOverlaySelected]} />
 
                 {isSelected && (
@@ -80,7 +82,7 @@ export default function ChooseStyleScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
+      <View style={[styles.cta, contentStyle, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
         <Button
           label={selectedId ? 'Continue' : 'Select a Style to Continue'}
           onPress={handleContinue}
@@ -104,7 +106,7 @@ const styles = StyleSheet.create({
     ...Shadow.soft,
   },
   cardSelected: { borderColor: Brand.gold },
-  cardImage: { width: '100%', height: 160 },
+  cardImage: { width: '100%' },
   cardOverlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: Brand.espresso,
@@ -152,5 +154,8 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.ivory,
     borderTopWidth: 1,
     borderTopColor: Brand.beige,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
 });

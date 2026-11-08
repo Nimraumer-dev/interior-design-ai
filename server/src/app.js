@@ -46,6 +46,7 @@ function createApp() {
         const file = await readObject(key);
         res.set('Cache-Control', 'private, max-age=60');
         res.set('Content-Type', file.contentType);
+        res.set('Cross-Origin-Resource-Policy', 'cross-origin');
         res.set('X-Content-Type-Options', 'nosniff');
         res.send(file.body);
       } catch (error) {

@@ -11,6 +11,7 @@ import { FlowHeader } from '@/components/design/flow-header';
 import { Button } from '@/components/ui/button';
 import { Brand, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
 import { useDesignStore } from '@/stores/design-store';
 
 const MOCK_PHOTOS = [
@@ -25,6 +26,7 @@ const MOCK_PHOTOS = [
 export default function UploadScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { contentStyle, columns, isTablet, isDesktop } = useResponsiveLayout();
   const selectedUri = useDesignStore(state => state.imageUri);
   const setImageUri = useDesignStore(state => state.setImageUri);
   const [isPicking, setIsPicking] = useState(false);
@@ -176,17 +178,17 @@ export default function UploadScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+        contentContainerStyle={[contentStyle, { paddingBottom: insets.bottom + 120 }]}
       >
         {selectedUri ? (
-          <View style={styles.previewSection}>
-            <View style={[styles.previewCard, { borderColor: theme.border }]}>
+          <View style={[styles.previewSection, isDesktop && styles.previewSectionDesktop]}>
+          <View style={[styles.previewCard, isDesktop && styles.previewCardDesktop, { borderColor: theme.border }]}>
               <Image source={{ uri: selectedUri }} style={styles.previewImage} contentFit="cover" />
               <View style={styles.previewOverlay} />
               <Text style={styles.previewLabel}>Selected Room Photo</Text>
             </View>
 
-            <View style={styles.selectionActions}>
+            <View style={[styles.selectionActions, isTablet && styles.selectionActionsTablet]}>
               <Pressable style={[styles.selectionButton, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]} onPress={takePhoto} disabled={isPicking}>
                 <Text style={[styles.selectionButtonText, { color: theme.espresso }]}>Retake</Text>
               </Pressable>
@@ -199,7 +201,7 @@ export default function UploadScreen() {
             </View>
           </View>
         ) : (
-          <View style={styles.actionRow}>
+          <View style={[styles.actionRow, isDesktop && styles.actionRowDesktop]}>
             <Pressable style={[styles.actionCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.border }]} onPress={takePhoto} disabled={isPicking}>
               <View style={styles.actionIconWrap}>
                 {isPicking ? (
@@ -242,7 +244,7 @@ export default function UploadScreen() {
           </View>
         )}
 
-        <View style={[styles.tipsCard, { backgroundColor: theme.cream }]}>
+        <View style={[styles.tipsCard, isDesktop && styles.centeredSection, { backgroundColor: theme.cream }]}>
           <View style={styles.tipsHeader}>
             <SymbolView
               name={{ ios: 'lightbulb', android: 'lightbulb', web: 'lightbulb' }}
@@ -268,11 +270,11 @@ export default function UploadScreen() {
           <Text style={[styles.sectionTitle, { color: theme.walnut }]}>Or select a sample room</Text>
         </View>
 
-        <View style={styles.photoGrid}>
+        <View style={[styles.photoGrid, isDesktop && styles.photoGridDesktop]}>
           {MOCK_PHOTOS.map(uri => (
             <Pressable
               key={uri}
-              style={[styles.photoThumb, selectedUri === uri && styles.photoThumbSelected]}
+              style={[styles.photoThumb, { width: `${100 / columns - 2}%` }, selectedUri === uri && styles.photoThumbSelected]}
               onPress={() => {
                 setErrorMessage(null);
                 setImageUri(uri);
@@ -293,11 +295,11 @@ export default function UploadScreen() {
           ))}
         </View>
         <Text style={[styles.demoNote, { color: theme.taupe }]}>
-          Photos are prepared on this device for preview. Uploading and AI generation require backend integration.
+        Photos are prepared on this device for preview and uploaded for AI generation.
         </Text>
       </ScrollView>
 
-      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
+      <View style={[styles.cta, contentStyle, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
         <Button
           label={selectedUri ? 'Continue with this Photo' : 'Select a Photo to Continue'}
           onPress={handleContinue}
@@ -318,6 +320,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.four,
     gap: Spacing.three,
   },
+  previewSectionDesktop: { maxWidth: 960, width: '100%', alignSelf: 'center' },
   previewCard: {
     position: 'relative',
     height: 260,
@@ -327,6 +330,7 @@ const styles = StyleSheet.create({
     borderColor: Brand.beige,
     ...Shadow.soft,
   },
+  previewCardDesktop: { height: 480, aspectRatio: 16 / 9, alignSelf: 'center', width: '100%' },
   previewImage: {
     width: '100%',
     height: '100%',
@@ -350,6 +354,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.two,
   },
+  selectionActionsTablet: { justifyContent: 'center' },
   selectionButton: {
     flex: 1,
     backgroundColor: Brand.white,
@@ -372,6 +377,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
   },
+  actionRowDesktop: { maxWidth: 820, width: '100%', alignSelf: 'center', paddingTop: Spacing.five },
   actionCard: {
     flex: 1,
     backgroundColor: Brand.white,
@@ -414,6 +420,7 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     gap: Spacing.two,
   },
+  centeredSection: { maxWidth: 820, width: '100%', alignSelf: 'center' },
   tipsHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   tipsTitle: { ...Typography.labelLarge, color: Brand.espresso },
   tipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
@@ -437,6 +444,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     gap: Spacing.two,
   },
+  photoGridDesktop: { maxWidth: 1100, width: '100%', alignSelf: 'center' },
   demoNote: {
     ...Typography.bodySmall,
     color: Brand.taupe,
@@ -445,7 +453,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   photoThumb: {
-    width: '31%',
     aspectRatio: 1,
     borderRadius: Radius.md,
     overflow: 'hidden',
@@ -476,5 +483,8 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.ivory,
     borderTopWidth: 1,
     borderTopColor: Brand.beige,
+    maxWidth: 720,
+    alignSelf: 'center',
+    width: '100%',
   },
 });

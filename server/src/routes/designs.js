@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const mongoose = require('mongoose');
 const multer = require('multer');
+const { z } = require('zod');
 const { Design, User, Scene, Outbox } = require('../models');
 const { authenticate } = require('../middleware/auth');
 const { designFields, parseOrThrow, objectIdPattern, budgetRanges, styles } = require('../utils/validation');
@@ -58,11 +59,13 @@ async function serializeDesign(design, includeRecommendations = true) {
     roomType: design.roomType,
     style: design.style,
     budgetRange: design.budgetRange,
+    originalImageUrl: await getReadUrl(design.originalImageKey),
     colors: design.colors,
     status: design.status,
     creditState: design.creditState,
     attempts: design.attempts,
     isMock: design.isMock,
+    isFavorite: design.isFavorite,
     results,
     palette: design.palette,
     recommendations: design.recommendations,
@@ -167,6 +170,18 @@ router.get('/', authenticate, async (req, res) => {
     designs: await Promise.all(designs.map((design) => serializeDesign(design, false))),
     pagination: { page, limit, total, pages: Math.ceil(total / limit) }
   });
+});
+
+router.patch('/:id/favorite', authenticate, async (req, res) => {
+  if (!objectIdPattern.test(req.params.id)) throw new AppError(400, 'INVALID_ID', 'Design id is invalid.');
+  const { saved } = parseOrThrow(z.object({ saved: z.boolean() }).strict(), req.body);
+  const design = await Design.findOneAndUpdate(
+    { _id: req.params.id, ownerId: req.user.id },
+    { $set: { isFavorite: saved } },
+    { returnDocument: 'after', runValidators: true }
+  );
+  if (!design) throw new AppError(404, 'NOT_FOUND', 'Design not found.');
+  res.json({ design: await serializeDesign(design) });
 });
 
 router.get('/:id', authenticate, async (req, res) => {

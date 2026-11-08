@@ -1,20 +1,11 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
-import {
-  Dimensions,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Spacing, Typography } from '@/constants/theme';
-
-const { width } = Dimensions.get('window');
 
 interface Slide {
   id: string;
@@ -30,7 +21,7 @@ const SLIDES: Slide[] = [
     imageUrl: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=900&q=85',
     overline: 'Reimagine Your Space',
     heading: 'Design with\nArtificial Intelligence',
-    body: 'Choose a room and explore a local sample redesign. AI-generated transformations are pending integration.',
+    body: 'Upload a room photo, choose your preferences, and generate a personalized redesign.',
   },
   {
     id: '2',
@@ -44,28 +35,36 @@ const SLIDES: Slide[] = [
     imageUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=900&q=85',
     overline: 'Shop the Look',
     heading: 'Bring Your Vision\nTo Life',
-    body: 'Explore sample furniture and estimated costs inspired by each look. Live retailer availability is pending integration.',
+    body: 'Browse furniture picks and estimated costs based on your design recommendations.',
   },
 ];
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef<FlatList<Slide>>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const activeIndexRef = useRef(0);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: { index?: number | null; isViewable: boolean }[] }) => {
-    if (viewableItems[0]?.index != null) {
-      setActiveIndex(viewableItems[0].index);
+  const onScroll = useCallback((event: { nativeEvent: { contentOffset: { x: number } } }) => {
+    if (width > 0) {
+      const nextIndex = Math.min(SLIDES.length - 1, Math.max(0, Math.round(event.nativeEvent.contentOffset.x / width)));
+      activeIndexRef.current = nextIndex;
+      setActiveIndex(current => current === nextIndex ? current : nextIndex);
     }
-  }).current;
+  }, [width]);
 
   function handleNext() {
     if (activeIndex < SLIDES.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
+      scrollRef.current?.scrollTo({ x: width * (activeIndex + 1), animated: true });
     } else {
       router.replace('/(auth)/login');
     }
   }
+
+  useEffect(() => {
+    if (width > 0) scrollRef.current?.scrollTo({ x: width * activeIndexRef.current, animated: false });
+  }, [width]);
 
   function handleSkip() {
     router.replace('/(auth)/login');
@@ -73,20 +72,29 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        ref={flatListRef}
-        data={SLIDES}
-        keyExtractor={item => item.id}
+      <ScrollView
+        ref={scrollRef}
+        style={styles.slides}
+        contentContainerStyle={styles.slidesContent}
         horizontal
         pagingEnabled
+        snapToInterval={width || undefined}
+        decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-        renderItem={({ item }) => <SlideItem slide={item} />}
-      />
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
+        {SLIDES.map(slide => (
+          <SlideItem key={slide.id} slide={slide} width={width} height={height} />
+        ))}
+      </ScrollView>
 
       {/* Bottom panel */}
-      <View style={[styles.panel, { paddingBottom: insets.bottom + Spacing.four }]}>
+      <View style={[styles.panel, {
+        left: Math.max((width - 560) / 2, 0),
+        right: Math.max((width - 560) / 2, 0),
+        paddingBottom: insets.bottom + Spacing.four,
+      }]}>
         {/* Dot indicators */}
         <View style={styles.dots}>
           {SLIDES.map((_, i) => (
@@ -117,9 +125,12 @@ export default function OnboardingScreen() {
   );
 }
 
-function SlideItem({ slide }: { slide: Slide }) {
+function SlideItem({ slide, width, height }: { slide: Slide; width: number; height: number }) {
+  const isDesktop = width >= 1024;
+  const compact = height < 680;
+
   return (
-    <View style={styles.slide}>
+    <View style={[styles.slide, { width: width || '100%' }]}>
       {/* Full-bleed image */}
       <Image source={{ uri: slide.imageUrl }} style={styles.image} contentFit="cover" />
 
@@ -127,9 +138,12 @@ function SlideItem({ slide }: { slide: Slide }) {
       <View style={styles.overlay} />
 
       {/* Text content */}
-      <View style={styles.textContent}>
+      <View style={[styles.textContent, {
+        bottom: compact ? 190 : 220,
+        maxWidth: isDesktop ? 760 : Math.max(0, width - Spacing.four * 2),
+      }]}>
         <Text style={styles.overline}>{slide.overline.toUpperCase()}</Text>
-        <Text style={styles.heading}>{slide.heading}</Text>
+        <Text style={[styles.heading, isDesktop && styles.headingDesktop]}>{slide.heading}</Text>
         <Text style={styles.body}>{slide.body}</Text>
       </View>
     </View>
@@ -141,9 +155,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Brand.espresso,
   },
+  slides: { flex: 1 },
+  slidesContent: { flexGrow: 1, height: '100%', alignItems: 'stretch' },
   slide: {
-    width,
-    flex: 1,
+    height: '100%',
+    flexShrink: 0,
+    overflow: 'hidden',
   },
   image: {
     ...StyleSheet.absoluteFill,
@@ -155,10 +172,12 @@ const styles = StyleSheet.create({
   },
   textContent: {
     position: 'absolute',
-    bottom: 220,
     left: Spacing.four,
     right: Spacing.four,
+    maxWidth: 760,
+    alignSelf: 'center',
     gap: Spacing.two,
+    zIndex: 1,
   },
   overline: {
     ...Typography.overline,
@@ -173,6 +192,7 @@ const styles = StyleSheet.create({
     color: Brand.ivory,
     fontFamily: Fonts?.serif ?? 'serif',
   },
+  headingDesktop: { fontSize: 52, lineHeight: 60 },
   body: {
     ...Typography.bodyMedium,
     color: Brand.beige,
@@ -182,14 +202,14 @@ const styles = StyleSheet.create({
   panel: {
     position: 'absolute',
     bottom: 0,
-    left: 0,
-    right: 0,
+    width: '100%',
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
     gap: Spacing.three,
     backgroundColor: 'rgba(48,37,31,0.72)',
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
+    maxWidth: 560,
   },
   dots: {
     flexDirection: 'row',

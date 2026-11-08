@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert } from 'react-native';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,14 +15,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
-import { Brand, Fonts, Radius, Spacing, Typography } from '@/constants/theme';
+import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocalUiState } from '@/hooks/use-local-ui-state';
 import { useTheme } from '@/hooks/use-theme';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
 
 export default function SignupScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { contentStyle, isTablet } = useResponsiveLayout();
   const { signup, isLoading } = useAuth();
   const { setDisplayName: setLocalDisplayName } = useLocalUiState();
 
@@ -36,6 +38,10 @@ export default function SignupScreen() {
     setError(null);
     if (!displayName.trim() || !email.trim() || !password.trim()) {
       setError('Please fill in all fields.');
+      return;
+    }
+    if (password.length < 10) {
+      setError('Password must be at least 10 characters.');
       return;
     }
     const err = await signup({ displayName: displayName.trim(), email: email.trim(), password });
@@ -61,7 +67,7 @@ export default function SignupScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + Spacing.four }]}
+          contentContainerStyle={[styles.scroll, contentStyle, isTablet && styles.desktopScroll, { paddingBottom: insets.bottom + Spacing.four }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -72,9 +78,9 @@ export default function SignupScreen() {
             </Pressable>
           </View>
 
-          <View style={[styles.card, { backgroundColor: theme.ivory }]}>
+          <View style={[styles.card, isTablet && styles.desktopCard, { backgroundColor: theme.ivory }]}>
             <Text style={[styles.heading, { color: theme.espresso }]}>Create account</Text>
-            <Text style={[styles.subheading, { color: theme.taupe }]}>Local demo account only; your details are not sent to a service.</Text>
+            <Text style={[styles.subheading, { color: theme.taupe }]}>Create an account to save and generate room designs.</Text>
 
             {error && (
               <View style={styles.errorBox}>
@@ -120,7 +126,7 @@ export default function SignupScreen() {
                   style={[styles.input, styles.inputFlex, { backgroundColor: theme.cream, color: theme.espresso, borderColor: theme.border }]}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Min. 8 characters"
+                  placeholder="At least 10 characters"
                   placeholderTextColor={Brand.taupe}
                   secureTextEntry={!passwordVisible}
                   returnKeyType="done"
@@ -158,7 +164,7 @@ export default function SignupScreen() {
             </Text>
 
             <Button
-              label="Create Demo Account"
+              label="Create Account"
               onPress={handleSignup}
               loading={isLoading}
               fullWidth
@@ -205,6 +211,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'flex-end',
   },
+  desktopScroll: { justifyContent: 'center', paddingHorizontal: Spacing.five },
   topBar: {
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.four,
@@ -228,6 +235,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.three,
     gap: Spacing.three,
   },
+  desktopCard: { width: '100%', maxWidth: 560, alignSelf: 'center', borderRadius: 32, ...Shadow.soft },
   heading: {
     fontSize: 28,
     fontWeight: '300',

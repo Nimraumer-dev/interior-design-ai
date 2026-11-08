@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert } from 'react-native';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,14 +15,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
-import { Brand, Fonts, Radius, Spacing, Typography } from '@/constants/theme';
+import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const { login, isLoading } = useAuth();
+  const { contentStyle, isTablet } = useResponsiveLayout();
+  const { login, isLoading, authError } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -58,7 +60,7 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + Spacing.four }]}
+          contentContainerStyle={[styles.scroll, contentStyle, isTablet && styles.desktopScroll, { paddingBottom: insets.bottom + Spacing.four }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -68,21 +70,21 @@ export default function LoginScreen() {
           </View>
 
           {/* Card */}
-          <View style={[styles.card, { backgroundColor: theme.ivory }]}>
+          <View style={[styles.card, isTablet && styles.desktopCard, { backgroundColor: theme.ivory }]}>
             <Text style={[styles.heading, { color: theme.espresso }]}>Welcome back</Text>
-            <Text style={[styles.subheading, { color: theme.taupe }]}>Demo sign-in only; real account services are pending integration.</Text>
+            <Text style={[styles.subheading, { color: theme.taupe }]}>Sign in to your account to access your designs.</Text>
 
             {/* Hint */}
             <View style={[styles.hintBox, { backgroundColor: theme.beige }]}>
               <Text style={[styles.hintText, { color: theme.taupe }]}>
-                Demo: sophia@example.com · password123
+                Your account details are sent securely to the API.
               </Text>
             </View>
 
             {/* Error */}
-            {error && (
+            {(error || authError) && (
               <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+                <Text style={styles.errorText}>{error || authError}</Text>
               </View>
             )}
 
@@ -140,7 +142,7 @@ export default function LoginScreen() {
             </Pressable>
 
             <Button
-              label="Sign In (Demo)"
+              label="Sign In"
               onPress={handleLogin}
               loading={isLoading}
               fullWidth
@@ -156,7 +158,7 @@ export default function LoginScreen() {
 
             {/* Sign up link */}
             <Pressable onPress={() => router.push('/(auth)/signup')} style={styles.signupRow}>
-              <Text style={[styles.signupText, { color: theme.taupe }]}>Don't have an account? </Text>
+              <Text style={[styles.signupText, { color: theme.taupe }]}>Don&apos;t have an account? </Text>
               <Text style={[styles.signupLink, { color: theme.gold }]}>Create one</Text>
             </Pressable>
           </View>
@@ -189,6 +191,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'flex-end',
   },
+  desktopScroll: { justifyContent: 'center', paddingHorizontal: Spacing.five },
   header: {
     alignItems: 'center',
     paddingBottom: Spacing.six,
@@ -209,6 +212,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.three,
     gap: Spacing.three,
   },
+  desktopCard: { width: '100%', maxWidth: 520, alignSelf: 'center', borderRadius: 32, ...Shadow.soft },
   heading: {
     fontSize: 28,
     fontWeight: '300',
