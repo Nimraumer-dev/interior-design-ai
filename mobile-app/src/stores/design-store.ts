@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { MOCK_DESIGNS, MOCK_STYLES, MOCK_USER } from '@/services/mock-data';
@@ -40,6 +40,11 @@ type PersistedDesignState = Pick<
 >;
 
 const initialDesigns = () => MOCK_DESIGNS.map(design => ({ ...design }));
+const serverStorage: StateStorage = {
+  getItem: async () => null,
+  setItem: async () => undefined,
+  removeItem: async () => undefined,
+};
 
 export const useDesignStore = create<DesignStore>()(persist((set) => ({
   roomType: null,
@@ -78,8 +83,9 @@ export const useDesignStore = create<DesignStore>()(persist((set) => ({
   setHydrationStatus: (hasHydrated, hydrationError) => set({ hasHydrated, hydrationError }),
 }), {
   name: 'atelier.local-designs-and-preferences',
-  storage: createJSONStorage(() => AsyncStorage),
+  storage: createJSONStorage(() => typeof window === 'undefined' ? serverStorage : AsyncStorage),
   version: 1,
+  skipHydration: true,
   partialize: (state): PersistedDesignState => ({
     designs: state.designs,
     displayName: state.displayName,

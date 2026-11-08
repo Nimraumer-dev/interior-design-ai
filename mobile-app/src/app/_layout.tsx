@@ -22,6 +22,10 @@ export default function RootLayout() {
     Appearance.setColorScheme(appearancePreference === 'system' ? 'auto' : appearancePreference);
   }, [appearancePreference]);
 
+  useEffect(() => {
+    void useDesignStore.persist.rehydrate();
+  }, []);
+
   return (
     <AuthProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
