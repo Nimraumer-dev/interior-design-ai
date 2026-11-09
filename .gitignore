@@ -1,0 +1,5 @@
+body*.json
+out*.json
+/package-lock.json
+mobile-app/.env
+node_modules/

@@ -7,3 +7,6 @@ uploads/
 uploads-test/
 *.log
 coverage/
+body*.json
+out*.json
+room.jpg
