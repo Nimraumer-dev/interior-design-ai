@@ -3,5 +3,7 @@
   "industrial":   {"palette": ["charcoal", "brown", "rust"], "materials": ["metal", "leather", "concrete"], "categories": ["wardrobe", "sofa", "lamp", "table"]},
   "minimalist":   {"palette": ["white", "beige", "black"], "materials": ["clean lines"], "categories": ["bed", "wardrobe", "chair"]},
   "bohemian":     {"palette": ["terracotta", "mustard", "green"], "materials": ["rattan", "textiles", "plants"], "categories": ["rug", "decor", "chair"]},
-  "modern":       {"palette": ["gray", "white", "bold accent"], "materials": ["glass", "steel", "smooth fabric"], "categories": ["sofa", "lamp", "table"]}
+  "modern":       {"palette": ["gray", "white", "bold accent"], "materials": ["glass", "steel", "smooth fabric"], "categories": ["sofa", "lamp", "table"]},
+  "contemporary": {"palette": ["gray", "white", "black"], "materials": ["glass", "metal"], "categories": ["sofa", "lamp", "table"]},
+  "coastal":      {"palette": ["white", "sky blue", "sand"], "materials": ["rattan", "linen"], "categories": ["sofa", "rug", "decor"]}
 }

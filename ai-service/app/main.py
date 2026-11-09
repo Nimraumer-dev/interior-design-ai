@@ -47,7 +47,7 @@ def redesign(req: RedesignRequest, authorization: str = Header(None)):
     try:
         results, first = [], None
         for i in range(n):
-            out = pipeline.run_redesign(image, prompt, negative, req.seed + i)
+            out = pipeline.run_redesign(image, prompt, negative,(req.seed if req.seed is not None else 42) + i)
             first = first or out
             results.append({"variant": i + 1, "imageBase64": pipeline.to_base64(out)})
     except Exception as e:

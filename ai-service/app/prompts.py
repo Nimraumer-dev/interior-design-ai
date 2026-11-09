@@ -7,6 +7,8 @@ STYLE_KEYWORDS = {
     "minimalist": "clean lines, neutral palette, uncluttered surfaces",
     "modern": "glass, steel, smooth fabric, gray and white, bold accent",
     "traditional": "classic wooden furniture, warm tones, elegant details",
+        "contemporary": "sleek lines, neutral tones, statement lighting, mixed materials, open space",
+    "coastal": "white and sky blue palette, driftwood, linen, rattan, airy natural light",
 }
 
 def build_prompt(room_type, style, colors):
