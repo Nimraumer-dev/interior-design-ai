@@ -36,6 +36,7 @@ const designSchema = new mongoose.Schema({
   modelVersion: { type: String, default: null },
   durationMs: { type: Number, default: null },
   isMock: { type: Boolean, default: false },
+  isFavorite: { type: Boolean, default: false },
   errorCode: { type: String, default: null },
   errorMessage: { type: String, default: null }
 }, { timestamps: true, versionKey: false });

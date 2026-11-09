@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,28 +8,66 @@ import { DesignCard } from '@/components/design/design-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
-import { MOCK_STYLES, MOCK_USER } from '@/services/mock-data';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
+import { MOCK_STYLES } from '@/services/mock-data';
 import { useDesignStore } from '@/stores/design-store';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { contentStyle, columns, isDesktop, isWide } = useResponsiveLayout();
+  const { user, refreshMe } = useAuth();
+  const [creditsError, setCreditsError] = useState<string | null>(null);
   const displayName = useDesignStore(state => state.displayName);
   const designs = useDesignStore(state => state.designs);
   const resetDesignFlow = useDesignStore(state => state.resetDesignFlow);
   const setStyleId = useDesignStore(state => state.setStyleId);
   const recentDesigns = designs.slice(0, 4);
   const featuredStyles = MOCK_STYLES.slice(0, 4);
+  const availableCredits = user?.availableCredits ?? 0;
+  const totalCredits = user?.credits ?? 0;
+  const usedCredits = Math.max(0, totalCredits - availableCredits);
+  const quotaProgress = totalCredits > 0 ? usedCredits / totalCredits : 0;
+
+  useFocusEffect(useCallback(() => {
+    const controller = new AbortController();
+    setCreditsError(null);
+    void refreshMe(controller.signal).catch(error => {
+      if (!controller.signal.aborted) {
+        setCreditsError(error instanceof Error ? error.message : 'Account credits could not be refreshed.');
+      }
+    });
+    return () => controller.abort();
+  }, [refreshMe]));
+
+  const featuredStyleTile = (style: typeof featuredStyles[number]) => (
+    <Pressable
+      key={style.id}
+      style={[styles.styleChip, isWide && styles.styleChipWide]}
+      accessibilityRole="button"
+      accessibilityLabel={`Create a design in ${style.name} style`}
+      onPress={() => {
+        resetDesignFlow();
+        setStyleId(style.id);
+        router.push({ pathname: '/(tabs)/generate', params: { styleId: style.id } });
+      }}
+    >
+      <Image source={{ uri: style.previewImageUrl }} style={styles.styleChipImage} contentFit="cover" />
+      <View style={styles.styleChipOverlay} />
+      <Text style={styles.styleChipName}>{style.name}</Text>
+    </Pressable>
+  );
 
   return (
     <ScrollView
       style={[styles.root, { backgroundColor: theme.ivory }]}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      contentContainerStyle={[contentStyle, { paddingBottom: insets.bottom + 100 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <View style={styles.hero}>
+      <View style={[styles.hero, isDesktop && styles.heroDesktop]}>
         <Image
           source={{ uri: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=900&q=85' }}
           style={StyleSheet.absoluteFill}
@@ -45,11 +84,13 @@ export default function HomeScreen() {
             accessibilityRole="button"
             onPress={() => router.push('/(tabs)/profile')}
           >
-            <Image
-              source={{ uri: MOCK_USER.avatarUrl }}
-              style={styles.avatar}
-              contentFit="cover"
-            />
+            {user?.avatarUrl ? (
+              <Image source={{ uri: user.avatarUrl }} style={styles.avatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <Text style={styles.avatarInitial}>{user?.displayName?.[0] ?? displayName[0] ?? 'A'}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
 
@@ -69,9 +110,15 @@ export default function HomeScreen() {
           />
         </View>
         <Text style={[styles.emptyDesignText, { color: theme.taupe }]}>
-          Sample allowance only; account limits require backend integration.
+          Your account has {availableCredits} generation credit{availableCredits === 1 ? '' : 's'} available.
         </Text>
       </View>
+
+      {creditsError ? (
+        <Text style={[styles.creditError, contentStyle]} accessibilityRole="alert">
+          Credit balance could not be refreshed: {creditsError}
+        </Text>
+      ) : null}
 
       {/* ── Featured Styles ───────────────────────────────────────────── */}
       <View style={styles.section}>
@@ -82,33 +129,13 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.stylesRow}
-        >
-          {featuredStyles.map(style => (
-            <Pressable
-              key={style.id}
-              style={styles.styleChip}
-              accessibilityRole="button"
-              accessibilityLabel={`Create a design in ${style.name} style`}
-              onPress={() => {
-                resetDesignFlow();
-                setStyleId(style.id);
-                router.push({ pathname: '/(tabs)/generate', params: { styleId: style.id } });
-              }}
-            >
-              <Image
-                source={{ uri: style.previewImageUrl }}
-                style={styles.styleChipImage}
-                contentFit="cover"
-              />
-              <View style={styles.styleChipOverlay} />
-              <Text style={styles.styleChipName}>{style.name}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        {isWide ? (
+          <View style={styles.stylesGrid}>{featuredStyles.map(featuredStyleTile)}</View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stylesRow}>
+            {featuredStyles.map(featuredStyleTile)}
+          </ScrollView>
+        )}
       </View>
 
       {/* ── Recent Designs ────────────────────────────────────────────── */}
@@ -120,18 +147,18 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.designsGrid}>
+        <View style={[styles.designsGrid, { gap: isDesktop ? Spacing.three : Spacing.two }]}>
           {recentDesigns.length === 0 ? (
             <View style={[styles.emptyDesigns, { backgroundColor: theme.cream }]}>
-              <Text style={[styles.emptyDesignText, { color: theme.taupe }]}>Your local designs will appear here.</Text>
+              <Text style={[styles.emptyDesignText, { color: theme.taupe }]}>Your account designs will appear here.</Text>
               <Button
-                label="Create a Demo Design"
+                label="Create a Design"
                 variant="secondary"
                 onPress={() => router.push('/(tabs)/generate')}
               />
             </View>
           ) : recentDesigns.map(design => (
-            <View key={design.id} style={styles.gridItem}>
+            <View key={design.id} style={[styles.gridItem, { width: `${100 / columns - 1}%` }]}>
               <DesignCard
                 design={design}
                 layout="grid"
@@ -146,18 +173,18 @@ export default function HomeScreen() {
       <View style={[styles.section, styles.quotaCard, { backgroundColor: theme.surfaceElevated }]}>
         <View style={styles.quotaRow}>
           <View>
-            <Text style={[styles.quotaLabel, { color: theme.taupe }]}>Demo generation allowance</Text>
+            <Text style={[styles.quotaLabel, { color: theme.taupe }]}>Available generation credits</Text>
             <Text style={[styles.quotaCount, { color: theme.espresso }]}>
-              {MOCK_USER.generationsUsed} / {MOCK_USER.generationsLimit}
+              {availableCredits} / {totalCredits}
             </Text>
           </View>
-          <Badge label={MOCK_USER.plan} variant="accent" />
+          <Badge label={user?.role === 'admin' ? 'Admin' : 'Free'} variant="accent" />
         </View>
         <View style={[styles.quotaTrack, { backgroundColor: theme.beige }]}>
           <View
             style={[
               styles.quotaFill,
-              { width: `${(MOCK_USER.generationsUsed / MOCK_USER.generationsLimit) * 100}%` },
+              { width: `${quotaProgress * 100}%` },
             ]}
           />
         </View>
@@ -176,6 +203,7 @@ const styles = StyleSheet.create({
     height: 420,
     justifyContent: 'space-between',
   },
+  heroDesktop: { height: 520, borderBottomLeftRadius: Radius.xl, borderBottomRightRadius: Radius.xl, overflow: 'hidden' },
   heroOverlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: Brand.espresso,
@@ -204,6 +232,8 @@ const styles = StyleSheet.create({
     borderColor: Brand.gold,
   },
   avatar: { width: 38, height: 38 },
+  avatarFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: Brand.walnut },
+  avatarInitial: { ...Typography.labelLarge, color: Brand.ivory },
   heroCopy: {
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.five,
@@ -234,6 +264,7 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
+    width: '100%',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -262,6 +293,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Shadow.soft,
   },
+  styleChipWide: { width: '24%', height: 150 },
+  stylesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, justifyContent: 'space-between' },
   styleChipImage: {
     ...StyleSheet.absoluteFill,
   },
@@ -294,9 +327,8 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.cream,
   },
   emptyDesignText: { ...Typography.bodyMedium, color: Brand.taupe, textAlign: 'center' },
-  gridItem: {
-    width: '48%',
-  },
+  creditError: { ...Typography.bodySmall, color: '#A33B2E', textAlign: 'center', paddingHorizontal: Spacing.four, paddingTop: Spacing.two },
+  gridItem: { width: '48%', minWidth: 0 },
   // ── Quota card
   quotaCard: {
     marginHorizontal: Spacing.four,

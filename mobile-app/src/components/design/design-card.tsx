@@ -32,7 +32,11 @@ export function DesignCard({ design, onPress, layout = 'grid' }: DesignCardProps
         <View style={styles.rowContent}>
           <View style={styles.badgeRow}>
             <Badge label={design.styleName} variant="default" />
-            {design.isDemo && <Badge label="Demo" variant="accent" />}
+            {(design.isMock || design.isDemo) && <Badge label="Mock AI" variant="accent" />}
+            {(design.status === 'pending' || design.status === 'processing') && (
+              <Badge label="Processing" variant="warning" />
+            )}
+            {design.status === 'failed' && <Badge label="Failed" variant="error" />}
           </View>
           <Text style={[styles.rowTitle, { color: theme.espresso }]} numberOfLines={2}>{design.title}</Text>
           <Text style={[styles.rowMeta, { color: theme.taupe }]}>
@@ -48,9 +52,9 @@ export function DesignCard({ design, onPress, layout = 'grid' }: DesignCardProps
             />
           </View>
         )}
-        {design.isDemo && (
+        {(design.isMock || design.isDemo) && (
           <View style={styles.demoBadge}>
-            <Badge label="Demo" variant="accent" />
+            <Badge label="Mock AI" variant="accent" />
           </View>
         )}
       </Pressable>

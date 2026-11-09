@@ -7,9 +7,9 @@ import {
   TabListProps,
 } from 'expo-router/ui';
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
-import { Pressable, useColorScheme, View, StyleSheet } from 'react-native';
+import { Pressable, useColorScheme, useWindowDimensions, View, StyleSheet } from 'react-native';
 
-import { Brand, Colors, MaxContentWidth, Radius, Spacing, Typography } from '@/constants/theme';
+import { Brand, Colors, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 
 import { ThemedText } from './themed-text';
 
@@ -31,9 +31,11 @@ const TAB_ICONS: Record<string, TabIconName> = {
 };
 
 export default function AppTabs() {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
   return (
     <Tabs>
-      <TabSlot style={{ height: '100%' }} />
+      <TabSlot style={{ height: '100%', paddingTop: isDesktop ? 64 : 0 }} />
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="home" href={"/(tabs)/" as any} asChild>
@@ -59,13 +61,13 @@ interface TabButtonProps extends TabTriggerSlotProps {
 }
 
 export function TabButton({ children, isFocused, tabKey, ...props }: TabButtonProps) {
+  const { width } = useWindowDimensions();
   const icon = TAB_ICONS[tabKey];
   const iconColor = isFocused ? Brand.espresso : Brand.taupe;
 
   return (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     <Pressable {...(props as any)} style={({ pressed }: { pressed: boolean }) => pressed && styles.pressed}>
-      <View style={[styles.tabButtonView, isFocused && styles.tabButtonActive]}>
+      <View style={[styles.tabButtonView, width < 480 && styles.tabButtonViewCompact, isFocused && styles.tabButtonActive]}>
         {icon && (
           <SymbolView name={icon} size={20} tintColor={iconColor} weight="regular" />
         )}
@@ -83,11 +85,17 @@ export function TabButton({ children, isFocused, tabKey, ...props }: TabButtonPr
 
 export function CustomTabList(props: TabListProps) {
   const scheme = useColorScheme();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
 
   return (
-    <View {...props} style={[styles.tabListContainer, { backgroundColor: colors.ivory }]}>
-      <View style={[styles.innerContainer, { borderTopColor: colors.border }]}>
+    <View {...props} style={[
+      styles.tabListContainer,
+      isDesktop ? styles.desktopTabList : styles.mobileTabList,
+      { backgroundColor: colors.ivory, borderBottomColor: colors.border },
+    ]}>
+      <View style={[styles.innerContainer, isDesktop && styles.desktopInnerContainer, { borderTopColor: colors.border }]}>
         {props.children}
       </View>
     </View>
@@ -97,9 +105,16 @@ export function CustomTabList(props: TabListProps) {
 const styles = StyleSheet.create({
   tabListContainer: {
     position: 'absolute',
-    bottom: 0,
     width: '100%',
     alignItems: 'center',
+  },
+  mobileTabList: {
+    bottom: 0,
+  },
+  desktopTabList: {
+    top: 0,
+    height: 64,
+    borderBottomWidth: 1,
   },
   innerContainer: {
     flexDirection: 'row',
@@ -111,6 +126,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
   },
+  desktopInnerContainer: {
+    maxWidth: 1280,
+    minHeight: 64,
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
+  },
   pressed: { opacity: 0.7 },
   tabButtonView: {
     flexDirection: 'row',
@@ -120,6 +141,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     borderRadius: Radius.full,
   },
+  tabButtonViewCompact: { paddingHorizontal: Spacing.one },
   tabButtonActive: { backgroundColor: Brand.gold },
   activeLabel: { color: Brand.espresso, fontWeight: '600' },
 });

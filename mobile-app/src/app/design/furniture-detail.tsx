@@ -8,9 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
 import { useTheme } from '@/hooks/use-theme';
-import { MOCK_FURNITURE } from '@/services/mock-data';
-import { formatPrice } from '@/utils/format';
+import { furniturePriceLabel } from '@/utils/format';
 import { useDesignStore } from '@/stores/design-store';
 
 function DimRow({ label, value }: { label: string; value: string }) {
@@ -26,11 +26,11 @@ function DimRow({ label, value }: { label: string; value: string }) {
 export default function FurnitureDetailScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { contentStyle, isDesktop } = useResponsiveLayout();
   const { furnitureId, resultId } = useLocalSearchParams<{ furnitureId?: string; resultId?: string }>();
   const designs = useDesignStore(state => state.designs);
   const design = designs.find(result => result.id === resultId);
-  const item = design?.suggestedFurniture.find(furniture => furniture.id === furnitureId)
-    ?? MOCK_FURNITURE.find(furniture => furniture.id === furnitureId);
+  const item = design?.suggestedFurniture.find(furniture => furniture.id === furnitureId);
   const [wishlisted, setWishlisted] = useState(false);
 
   async function openRetailer() {
@@ -51,7 +51,7 @@ export default function FurnitureDetailScreen() {
     return (
       <View style={[styles.root, styles.emptyResult, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
         <Text style={[styles.itemName, { color: theme.espresso }]}>Furniture unavailable</Text>
-        <Text style={[styles.itemBrand, { color: theme.taupe }]}>This item is not in this design's sample catalogue.</Text>
+        <Text style={[styles.itemBrand, { color: theme.taupe }]}>This item is not in this design&apos;s current recommendations.</Text>
         <Button label="Go to My Designs" onPress={() => router.replace('/(tabs)/designs')} />
       </View>
     );
@@ -60,7 +60,7 @@ export default function FurnitureDetailScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
       {/* Top bar */}
-      <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
+      <View style={[styles.topBar, contentStyle, { borderBottomColor: theme.border }]}>
         <Pressable style={[styles.iconBtn, { backgroundColor: theme.beige }]} onPress={() => router.back()} accessibilityLabel="Go back">
           <SymbolView name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }} size={18} tintColor={theme.espresso} weight="light" />
         </Pressable>
@@ -74,11 +74,11 @@ export default function FurnitureDetailScreen() {
         </Pressable>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[contentStyle, { paddingBottom: insets.bottom + 120 }]}>
         {/* Hero image */}
-        <Image source={{ uri: item.imageUrl }} style={styles.heroImage} contentFit="cover" />
+        <Image source={{ uri: item.imageUrl }} style={[styles.heroImage, isDesktop && styles.heroImageDesktop]} contentFit="cover" />
 
-        <View style={styles.body}>
+        <View style={[styles.body, { maxWidth: 820, alignSelf: 'center', width: '100%' }]}>
           {/* Header */}
           <View style={styles.itemHeader}>
             <View style={styles.itemHeaderLeft}>
@@ -86,7 +86,7 @@ export default function FurnitureDetailScreen() {
               <Text style={[styles.itemName, { color: theme.espresso }]}>{item.name}</Text>
               <Text style={[styles.itemBrand, { color: theme.taupe }]}>{item.brand}</Text>
             </View>
-            <Text style={[styles.itemPrice, { color: theme.gold }]}>{formatPrice(item.priceUsd)}</Text>
+            <Text style={[styles.itemPrice, { color: theme.gold }]}>{furniturePriceLabel(item)}</Text>
           </View>
 
           {/* Material */}
@@ -116,7 +116,7 @@ export default function FurnitureDetailScreen() {
             <View style={[styles.fitCard, { backgroundColor: theme.cream }]}>
               <SymbolView name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }} size={16} tintColor={Brand.gold} weight="light" />
               <Text style={[styles.fitText, { color: theme.taupe }]}>
-                Sample catalogue data illustrates how furniture recommendations will be presented. AI matching is pending integration.
+                Recommended for your {design?.styleName ?? 'selected'} room design. Product availability and retailer links depend on catalogue setup.
               </Text>
             </View>
           </View>
@@ -124,7 +124,7 @@ export default function FurnitureDetailScreen() {
       </ScrollView>
 
       {/* CTA */}
-      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
+      <View style={[styles.cta, contentStyle, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
         <Button label="View on Retailer Website" onPress={openRetailer} fullWidth size="lg" />
         <Button
           label="Back to Furniture List"
@@ -152,6 +152,7 @@ const styles = StyleSheet.create({
   },
   topTitle: { flex: 1, textAlign: 'center', ...Typography.labelLarge, color: Brand.espresso, marginHorizontal: Spacing.two },
   heroImage: { width: '100%', height: 280 },
+  heroImageDesktop: { height: 440 },
   body: { padding: Spacing.four, gap: Spacing.four },
   itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: Spacing.three },
   itemHeaderLeft: { flex: 1, gap: Spacing.one },
@@ -173,5 +174,6 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 0, left: 0, right: 0,
     paddingHorizontal: Spacing.four, paddingTop: Spacing.three, gap: Spacing.two,
     backgroundColor: Brand.ivory, borderTopWidth: 1, borderTopColor: Brand.beige,
+    maxWidth: 720, alignSelf: 'center', width: '100%',
   },
 });

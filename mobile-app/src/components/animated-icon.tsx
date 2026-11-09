@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
-import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Dimensions, Platform, StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -10,7 +10,13 @@ const DURATION = 600;
 
 export function AnimatedSplashOverlay() {
   const [animate, setAnimate] = useState(false);
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(Platform.OS !== 'web');
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      void SplashScreen.hideAsync();
+    }
+  }, []);
 
   if (!visible) return null;
 

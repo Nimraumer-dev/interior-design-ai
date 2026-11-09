@@ -51,6 +51,14 @@ npm run worker:dev
 
 The API listens on `0.0.0.0:5000`, creates MongoDB indexes before accepting requests and exposes only `GET /health` without authentication. Start the API and worker using `npm start` and `npm run worker` outside development. Seed the sample catalogue with `npm run seed:catalog`.
 
+On Windows, start or reuse the API, worker, and Expo web server together from the repository root:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\server\scripts\start-local-demo.ps1
+```
+
+The script reuses a healthy API on port 5000, an existing worker process, and a healthy Expo server on port 8081. It starts only missing services in separate processes, keeps `.env` values private, and does not edit configuration or secrets.
+
 To grant admin access, first register the account normally, then run `npm run admin:promote -- user@example.com` from the server directory. Promotion is a trusted local/operations command, not a public API.
 
 ## Phone on the same Wi-Fi
@@ -97,7 +105,7 @@ No AI implementation was present in the supplied workspace to verify request fie
 
 `npm run seed:catalog` upserts 30 stable SKU examples across eight categories. Their names/prices are development seed data, not verified products; replace them through admin operations before production. Model and thumbnail keys are null until actual private assets are uploaded.
 
-Budget recommendation ceilings are per furniture item: `low` = PKR 25,000, `medium` = PKR 100,000, `high` = PKR 500,000. These starter limits need confirmation with the product team. AI suggestions only select existing active catalogue items and never create catalogue prices. Estimates use integer PKR paisa, combine duplicate line items, cap quantities/baskets/totals and exclude tax, delivery and discounts.
+Budget recommendation ceilings are per furniture item: `low` = PKR 25,000, `medium` = PKR 100,000, `high` and `ultra` = PKR 500,000. These starter limits need confirmation with the product team; `ultra` currently shares the high-tier catalogue ceiling and is passed to the AI adapter as `high`. AI suggestions only select existing active catalogue items and never create catalogue prices. Estimates use integer PKR paisa, combine duplicate line items, cap quantities/baskets/totals and exclude tax, delivery and discounts.
 
 ## Checks
 
@@ -107,6 +115,6 @@ npm test
 
 The tests start an ephemeral MongoDB replica set (the MongoDB Memory Server package downloads a MongoDB binary on first use) and cover auth, role/ownership isolation, upload validation, idempotency, concurrent credit reservations, mock success charging, failure release, lease recovery, scenes and stored-price cost estimates. They do not verify Atlas connectivity, S3 credentials, a physical phone/firewall, or the real AI contract/service.
 
-## Frontend handoff (not changed here)
+## Frontend integration
 
-The supplied `mobile-app` folder contained no app source to update. The frontend must replace Firebase/mock-auth calls with these REST endpoints, keep JWTs in platform secure storage, submit multipart `image` plus an `Idempotency-Key`, poll a design every 2–3 seconds, show `isMock`, stop polling on terminal status, refresh result URLs, and handle 401/402/413/failed jobs. Mobile must use a reachable LAN/HTTPS base URL, never localhost on a phone. The exact client migration cannot be applied or validated until its source files and existing API conventions are available.
+The Expo client uses the auth, profile, design upload/history/favorite, catalogue recommendation, and cost-estimate endpoints above. Native tokens are stored in platform secure storage; web previews use tab-scoped session storage. The frontend polls jobs until a terminal status and labels mock results. Keep `AI_MOCK=true` until the separate AI service contract is configured and verified.

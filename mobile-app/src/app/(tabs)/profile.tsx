@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -20,7 +20,9 @@ import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/t
 import { useAuth } from '@/hooks/use-auth';
 import { useLocalUiState } from '@/hooks/use-local-ui-state';
 import { useTheme } from '@/hooks/use-theme';
-import { MOCK_STYLES, MOCK_USER } from '@/services/mock-data';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
+import { apiRequest } from '@/services/api';
+import { MOCK_STYLES } from '@/services/mock-data';
 import { useDesignStore } from '@/stores/design-store';
 
 type SymbolName = { ios: string; android: string; web: string };
@@ -73,8 +75,10 @@ function SettingsRow({ icon, label, value, onPress, destructive = false }: Setti
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { contentStyle, isDesktop } = useResponsiveLayout();
   const isDark = theme.background === '#000000';
-  const { logout, user } = useAuth();
+  const { logout, user, refreshMe } = useAuth();
+  const [creditsError, setCreditsError] = useState<string | null>(null);
   const {
     displayName,
     setDisplayName,
@@ -91,8 +95,23 @@ export default function ProfileScreen() {
   const setAppearancePreference = useDesignStore(state => state.setAppearancePreference);
   const totalDesigns = useDesignStore(state => state.designs.length);
   const favoriteDesigns = savedDesignIds.length;
-  const quotaPct = Math.round((MOCK_USER.generationsUsed / MOCK_USER.generationsLimit) * 100);
+  const availableCredits = user?.availableCredits ?? 0;
+  const totalCredits = user?.credits ?? 0;
+  const reservedCredits = user?.reservedCredits ?? 0;
+  const usedCredits = Math.max(0, totalCredits - availableCredits);
+  const quotaPct = totalCredits > 0 ? Math.round((usedCredits / totalCredits) * 100) : 0;
   const preferredStyle = MOCK_STYLES.find(style => style.id === preferredStyleId) ?? MOCK_STYLES[0];
+
+  useFocusEffect(useCallback(() => {
+    const controller = new AbortController();
+    setCreditsError(null);
+    void refreshMe(controller.signal).catch(error => {
+      if (!controller.signal.aborted) {
+        setCreditsError(error instanceof Error ? error.message : 'Account credits could not be refreshed.');
+      }
+    });
+    return () => controller.abort();
+  }, [refreshMe]));
 
   function showPendingFeature(feature: string) {
     Alert.alert('Pending integration', `${feature} has not been configured yet.`);
@@ -101,25 +120,31 @@ export default function ProfileScreen() {
   return (
     <ScrollView
       style={[styles.root, isDark && styles.darkRoot]}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      contentContainerStyle={[contentStyle, { maxWidth: 900, paddingBottom: insets.bottom + 100 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <View style={[styles.headerBg, { paddingTop: insets.top + Spacing.three }]}>
+      <View style={[styles.headerBg, isDesktop && styles.headerBgDesktop, { paddingTop: insets.top + Spacing.three }]}>
         <Text style={styles.wordmark}>ATELIER</Text>
         <View style={styles.avatarWrapper}>
-          <Image source={{ uri: MOCK_USER.avatarUrl }} style={styles.avatar} contentFit="cover" />
+          {user?.avatarUrl ? <Image source={{ uri: user.avatarUrl }} style={styles.avatar} contentFit="cover" /> : null}
           <View style={styles.avatarBorder} />
         </View>
-        <Text style={styles.displayName}>{displayName}</Text>
-        <Text style={styles.email}>{user?.email ?? MOCK_USER.email}</Text>
+        <Text style={styles.displayName}>{user?.displayName || displayName}</Text>
+        <Text style={styles.email}>{user?.email ?? ''}</Text>
         <View style={styles.planRow}>
-          <Badge label={`${MOCK_USER.plan} demo plan`} variant="accent" />
+        <Badge label={user?.role === 'admin' ? 'Admin account' : 'Free account'} variant="accent" />
         </View>
       </View>
 
+      {creditsError ? (
+        <Text style={[styles.creditError, isDark && styles.lightText]} accessibilityRole="alert">
+          Credit balance could not be refreshed: {creditsError}
+        </Text>
+      ) : null}
+
       {/* ── Stats ───────────────────────────────────────────────────── */}
-      <View style={[styles.statsRow, isDark && styles.darkCard]}>
+      <View style={[styles.statsRow, isDesktop && styles.statsRowDesktop, isDark && styles.darkCard]}>
         <View style={styles.statItem}>
           <Text style={[styles.statValue, isDark && styles.lightText]}>{totalDesigns}</Text>
           <Text style={[styles.statLabel, isDark && styles.darkMutedText]}>Designs</Text>
@@ -131,8 +156,8 @@ export default function ProfileScreen() {
         </View>
         <View style={[styles.statDivider, isDark && styles.darkDivider]} />
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, isDark && styles.lightText]}>{MOCK_USER.generationsUsed}</Text>
-          <Text style={[styles.statLabel, isDark && styles.darkMutedText]}>Demo Runs</Text>
+          <Text style={[styles.statValue, isDark && styles.lightText]}>{availableCredits}</Text>
+          <Text style={[styles.statLabel, isDark && styles.darkMutedText]}>Credits left</Text>
         </View>
       </View>
 
@@ -140,16 +165,16 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <View style={[styles.quotaCard, isDark && styles.darkCard]}>
           <View style={styles.quotaHeader}>
-            <Text style={[styles.quotaTitle, isDark && styles.lightText]}>Sample Monthly Quota</Text>
+            <Text style={[styles.quotaTitle, isDark && styles.lightText]}>Generation Credits</Text>
             <Text style={[styles.quotaFraction, isDark && styles.lightText]}>
-              {MOCK_USER.generationsUsed}/{MOCK_USER.generationsLimit}
+              {usedCredits}/{totalCredits}
             </Text>
           </View>
           <View style={[styles.quotaTrack, isDark && styles.darkTrack]}>
             <View style={[styles.quotaFill, { width: `${quotaPct}%` }]} />
           </View>
           <Text style={[styles.quotaHint, isDark && styles.darkMutedText]}>
-            {MOCK_USER.generationsLimit - MOCK_USER.generationsUsed} sample generations remaining · live usage requires backend integration
+            {availableCredits} available · {reservedCredits} reserved for jobs in progress
           </Text>
         </View>
       </View>
@@ -209,7 +234,7 @@ export default function ProfileScreen() {
           <SettingsRow
             icon={{ ios: 'creditcard', android: 'credit_card', web: 'credit_card' }}
             label="Manage Plan"
-            value="Pro"
+            value={user?.role === 'admin' ? 'Admin' : 'Free'}
             onPress={() => showPendingFeature('Plan management')}
           />
         </View>
@@ -247,9 +272,15 @@ export default function ProfileScreen() {
             label="Sign Out"
             destructive
             onPress={() => {
-              logout();
-              resetDesignFlow();
-              router.replace('/(auth)/login');
+              void logout()
+                .then(() => {
+                  resetDesignFlow();
+                  router.replace('/(auth)/login');
+                })
+                .catch(error => Alert.alert(
+                  'Sign out failed',
+                  error instanceof Error ? error.message : 'Please try again.',
+                ));
             }}
           />
         </View>
@@ -270,7 +301,7 @@ export default function ProfileScreen() {
           {activeModal === 'edit' ? (
             <View style={[styles.modalCard, isDark && styles.darkCard]}>
               <Text style={[styles.modalTitle, isDark && styles.lightText]}>Edit Profile</Text>
-              <Text style={[styles.modalHint, isDark && styles.darkMutedText]}>Changes are saved on this device.</Text>
+              <Text style={[styles.modalHint, isDark && styles.darkMutedText]}>Changes are saved to your account.</Text>
               <TextInput
                 style={[styles.nameInput, isDark && styles.darkInput]}
                 value={editedName}
@@ -295,8 +326,22 @@ export default function ProfileScreen() {
                       Alert.alert('Name required', 'Enter a name before saving.');
                       return;
                     }
-                    setDisplayName(editedName.trim());
-                    setActiveModal(null);
+                    void (async () => {
+                      try {
+                        await apiRequest('/auth/me', {
+                          method: 'PATCH',
+                          body: JSON.stringify({ name: editedName.trim() }),
+                        });
+                        await refreshMe();
+                        setDisplayName(editedName.trim());
+                        setActiveModal(null);
+                      } catch (error) {
+                        Alert.alert(
+                          'Profile update failed',
+                          error instanceof Error ? error.message : 'Please try again.',
+                        );
+                      }
+                    })();
                   }}
                 >
                   <Text style={styles.modalPrimaryText}>Save</Text>
@@ -413,6 +458,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.five,
     gap: Spacing.one,
   },
+  headerBgDesktop: { paddingVertical: Spacing.five },
   wordmark: {
     fontSize: 14,
     fontWeight: '300',
@@ -438,6 +484,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   email: { ...Typography.bodySmall, color: Brand.taupe, marginTop: 2 },
+  creditError: { ...Typography.bodySmall, color: '#A33B2E', textAlign: 'center', paddingHorizontal: Spacing.four, paddingTop: Spacing.two },
   planRow: { marginTop: Spacing.two },
   statsRow: {
     flexDirection: 'row',
@@ -448,6 +495,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     ...Shadow.medium,
   },
+  statsRowDesktop: { width: '92%', maxWidth: 820, alignSelf: 'center' },
   statItem: { flex: 1, alignItems: 'center', gap: 2 },
   statValue: {
     fontSize: 22,
@@ -462,7 +510,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   statDivider: { width: 1, backgroundColor: Brand.beige, marginVertical: Spacing.one },
-  section: { paddingHorizontal: Spacing.four, paddingTop: Spacing.four, gap: Spacing.two },
+  section: { width: '100%', maxWidth: 820, alignSelf: 'center', paddingHorizontal: Spacing.four, paddingTop: Spacing.four, gap: Spacing.two },
   sectionTitle: {
     ...Typography.labelLarge,
     color: Brand.taupe,
@@ -516,6 +564,9 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
     maxHeight: '80%',
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
     ...Shadow.medium,
   },
   modalTitle: {

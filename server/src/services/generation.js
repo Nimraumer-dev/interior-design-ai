@@ -120,7 +120,7 @@ async function callAi(design) {
           imageUrl: url,
           roomType: design.roomType,
           style: design.style,
-          budgetRange: design.budgetRange,
+          budgetRange: design.budgetRange === 'ultra' ? 'high' : design.budgetRange,
           colors: design.colors,
           numVariants: design.numVariants,
           seed: design.seed

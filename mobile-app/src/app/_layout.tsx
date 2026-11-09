@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, Slot, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { Appearance, useColorScheme, ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Appearance, Platform, useColorScheme, ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useEffect } from 'react';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -11,16 +11,36 @@ import { useDesignStore } from '@/stores/design-store';
 
 SplashScreen.preventAutoHideAsync();
 
+function rehydrateDesignStore() {
+  void useDesignStore.persist.rehydrate().catch(() => {
+    useDesignStore.getState().setHydrationStatus(
+      true,
+      'Saved designs and preferences could not be loaded from this device. Retry to try again.',
+    );
+  });
+}
+
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const systemColorScheme = useColorScheme();
   const appearancePreference = useDesignStore(state => state.appearancePreference);
+  const colorScheme = appearancePreference === 'system' ? systemColorScheme : appearancePreference;
   const hasHydrated = useDesignStore(state => state.hasHydrated);
   const hydrationError = useDesignStore(state => state.hydrationError);
   const setHydrationStatus = useDesignStore(state => state.setHydrationStatus);
 
   useEffect(() => {
-    Appearance.setColorScheme(appearancePreference === 'system' ? 'auto' : appearancePreference);
+    if (Platform.OS === 'web') {
+      document.documentElement.style.colorScheme = appearancePreference === 'system'
+        ? 'light dark'
+        : appearancePreference;
+    } else {
+      Appearance.setColorScheme(appearancePreference === 'system' ? 'auto' : appearancePreference);
+    }
   }, [appearancePreference]);
+
+  useEffect(() => {
+    rehydrateDesignStore();
+  }, []);
 
   return (
     <AuthProvider>
@@ -41,7 +61,7 @@ export default function RootLayout() {
                   size="sm"
                   onPress={() => {
                     setHydrationStatus(false, null);
-                    void useDesignStore.persist.rehydrate();
+                    rehydrateDesignStore();
                   }}
                 />
               </View>

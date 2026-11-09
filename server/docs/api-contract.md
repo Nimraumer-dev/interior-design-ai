@@ -26,7 +26,7 @@ Multipart fields: one `image`, `roomType`, `style`, `budgetRange`, optional JSON
 
 - Room types: `living_room`, `bedroom`, `kitchen`, `dining_room`, `bathroom`, `office`, `other`
 - Styles: `modern`, `minimalist`, `scandinavian`, `industrial`, `bohemian`, `traditional`, `contemporary`, `coastal`, `farmhouse`
-- Budgets: `low`, `medium`, `high`
+- Budgets: `low`, `medium`, `high`, `ultra` (`ultra` shares the current high-tier catalogue ceiling and is sent to the AI adapter as `high`)
 
 Returns 202: `{ "designId": "<id>", "status": "queued" }`. A same-owner same-key same-payload retry returns the existing ID/status. A changed payload for that key returns 409. No available credit returns 402.
 
@@ -36,7 +36,11 @@ Owner-only history. Query parameters: `page` (default 1), `limit` (default 20, m
 
 ### `GET /api/designs/:id`
 
-Returns `{ "design": { "id", "roomType", "style", "budgetRange", "colors", "status", "creditState", "attempts", "isMock", "results", "palette", "recommendations", "recommendedFurniture", "roomAnalysis", "modelVersion", "durationMs", "errorCode", "errorMessage", "createdAt", "updatedAt" } }`. A result is `{ "variant": 1, "url": "<short-lived signed URL>", "thumbUrl": "<short-lived signed URL>" }`. Links are freshly signed on each read. A foreign or missing ID returns 404.
+Returns `{ "design": { "id", "roomType", "style", "budgetRange", "originalImageUrl", "colors", "status", "creditState", "attempts", "isMock", "results", "palette", "recommendations", "recommendedFurniture", "roomAnalysis", "modelVersion", "durationMs", "errorCode", "errorMessage", "createdAt", "updatedAt" } }`. Original and result image links are freshly signed on each read; the original image link is also included in history. A result is `{ "variant": 1, "url": "<short-lived signed URL>", "thumbUrl": "<short-lived signed URL>" }`. A foreign or missing ID returns 404.
+
+### `PATCH /api/designs/:id/favorite`
+
+Owner-only saved-design toggle. Request: `{ "saved": true }`; returns `{ "design": { ... } }` with the updated `isFavorite` value. Design history and detail responses include `isFavorite`.
 
 ### `DELETE /api/designs/:id`
 

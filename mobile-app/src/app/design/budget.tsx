@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Brand, Fonts, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
 import { MOCK_BUDGETS } from '@/services/mock-data';
 import { useDesignStore } from '@/stores/design-store';
 import { BudgetTier } from '@/types/design';
@@ -22,6 +23,7 @@ const TIER_ICONS: Record<BudgetTier, { ios: string; android: string; web: string
 export default function BudgetScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { contentStyle } = useResponsiveLayout();
   const selectedTier = useDesignStore(state => state.budgetTier);
   const setBudgetTier = useDesignStore(state => state.setBudgetTier);
 
@@ -34,7 +36,7 @@ export default function BudgetScreen() {
     <View style={[styles.root, { paddingTop: insets.top + Spacing.three, backgroundColor: theme.ivory }]}>
       <FlowHeader title="Set Your Budget" subtitle="We'll tailor furniture recommendations to your range." step={3} totalSteps={5} />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 120, paddingTop: Spacing.four }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[contentStyle, { paddingBottom: insets.bottom + 120, paddingTop: Spacing.four }]}>
         <View style={styles.list}>
           {MOCK_BUDGETS.map(budget => {
             const isSelected = selectedTier === budget.id;
@@ -77,12 +79,12 @@ export default function BudgetScreen() {
 
         <View style={styles.note}>
           <SymbolView name={{ ios: 'info.circle', android: 'info', web: 'info' }} size={14} tintColor={Brand.taupe} weight="light" />
-          <Text style={[styles.noteText, { color: theme.taupe }]}>Budget filters demo furniture recommendations only. AI redesign quality is the same across all tiers.</Text>
+          <Text style={[styles.noteText, { color: theme.taupe }]}>Your budget range is sent with the design request and used to select catalogue recommendations.</Text>
         </View>
       </ScrollView>
 
-      <View style={[styles.cta, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
-        <Button label={selectedTier ? 'Preview Demo Design' : 'Select a Budget to Continue'} onPress={handleContinue} disabled={!selectedTier} fullWidth size="lg" />
+      <View style={[styles.cta, contentStyle, { paddingBottom: insets.bottom + Spacing.three, backgroundColor: theme.ivory, borderTopColor: theme.border }]}>
+        <Button label={selectedTier ? 'Generate Design' : 'Select a Budget to Continue'} onPress={handleContinue} disabled={!selectedTier} fullWidth size="lg" />
       </View>
     </View>
   );
@@ -90,7 +92,7 @@ export default function BudgetScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.ivory },
-  list: { paddingHorizontal: Spacing.four, gap: Spacing.two },
+  list: { paddingHorizontal: Spacing.four, gap: Spacing.two, maxWidth: 820, width: '100%', alignSelf: 'center' },
   card: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: Brand.white,
     borderRadius: Radius.lg, padding: Spacing.three, gap: Spacing.three,
@@ -116,5 +118,6 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 0, left: 0, right: 0,
     paddingHorizontal: Spacing.four, paddingTop: Spacing.three,
     backgroundColor: Brand.ivory, borderTopWidth: 1, borderTopColor: Brand.beige,
+    maxWidth: 720, alignSelf: 'center', width: '100%',
   },
 });

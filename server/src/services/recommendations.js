@@ -4,7 +4,8 @@ const { getReadUrl } = require('./storage');
 const budgetCeilingsPaisa = Object.freeze({
   low: 2500000,
   medium: 10000000,
-  high: 50000000
+  high: 50000000,
+  ultra: 50000000
 });
 
 function isColorMatch(itemColors, hint) {

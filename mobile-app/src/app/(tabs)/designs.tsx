@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,6 +8,8 @@ import { DesignCard } from '@/components/design/design-card';
 import { Button } from '@/components/ui/button';
 import { Brand, Fonts, Radius, Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
+import { deleteRemoteDesign, refreshDesignHistory } from '@/services/design-api';
 import { useDesignStore } from '@/stores/design-store';
 import { RoomType, DesignResult } from '@/types/design';
 
@@ -25,11 +27,31 @@ const FILTER_TABS: { id: FilterTab; label: string }[] = [
 export default function DesignsScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { columns, contentStyle } = useResponsiveLayout();
   const designs = useDesignStore(state => state.designs);
   const deleteDesign = useDesignStore(state => state.deleteDesign);
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [layout, setLayout] = useState<'grid' | 'row'>('grid');
   const [deleteTarget, setDeleteTarget] = useState<DesignResult | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  useFocusEffect(useCallback(() => {
+    const controller = new AbortController();
+    setIsRefreshing(true);
+    setHistoryError(null);
+    void refreshDesignHistory(controller.signal)
+      .catch(error => {
+        if (!controller.signal.aborted) {
+          setHistoryError(error instanceof Error ? error.message : 'Design history could not be loaded.');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsRefreshing(false);
+      });
+    return () => controller.abort();
+  }, []));
+
   const filtered = designs.filter(d => {
     if (activeFilter === 'all') return true;
     if (activeFilter === 'favorites') return d.isFavorite;
@@ -41,7 +63,7 @@ export default function DesignsScreen() {
       ? 'No saved designs'
       : 'No matching designs';
   const emptyBody = designs.length === 0
-    ? 'Your local demo designs will appear here after you create one.'
+    ? 'Your account designs will appear here after you generate one.'
     : activeFilter === 'favorites'
       ? 'Save a design with the heart button to find it here.'
       : 'Try another room filter or view your full collection.';
@@ -49,7 +71,7 @@ export default function DesignsScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.ivory }]}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: theme.border }]}>
+      <View style={[styles.header, contentStyle, { borderBottomColor: theme.border }]}>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.overline}>YOUR COLLECTION</Text>
@@ -124,17 +146,23 @@ export default function DesignsScreen() {
       </View>
 
       {/* Results count */}
-      <View style={styles.countRow}>
+      <View style={[styles.countRow, contentStyle]}>
         <Text style={[styles.countText, { color: theme.taupe }]}>
-          {filtered.length} design{filtered.length !== 1 ? 's' : ''} · local collection
+          {isRefreshing ? 'Refreshing… · ' : ''}{filtered.length} design{filtered.length !== 1 ? 's' : ''} · account history
         </Text>
       </View>
+      {historyError ? (
+        <Text style={[styles.historyError, contentStyle, { color: theme.taupe }]}>{historyError}</Text>
+      ) : (
+        <Text style={[styles.savedNote, contentStyle, { color: theme.taupe }]}>Saved designs are synced to your account.</Text>
+      )}
 
       {/* Designs list */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           layout === 'grid' ? styles.gridContainer : styles.rowContainer,
+          contentStyle,
           { paddingBottom: insets.bottom + 100 },
         ]}
       >
@@ -151,7 +179,7 @@ export default function DesignsScreen() {
             <Text style={[styles.emptyTitle, { color: theme.espresso }]}>{emptyTitle}</Text>
             <Text style={[styles.emptyBody, { color: theme.taupe }]}>{emptyBody}</Text>
             {designs.length === 0 ? (
-              <Button label="Create a Demo Design" onPress={() => router.push('/(tabs)/generate')} />
+              <Button label="Create a Design" onPress={() => router.push('/(tabs)/generate')} />
             ) : activeFilter !== 'all' ? (
               <Button label="Show All Designs" variant="secondary" onPress={() => setActiveFilter('all')} />
             ) : null}
@@ -159,7 +187,7 @@ export default function DesignsScreen() {
         ) : layout === 'grid' ? (
           <View style={styles.gridInner}>
             {filtered.map(design => (
-              <View key={design.id} style={styles.gridItem}>
+              <View key={design.id} style={[styles.gridItem, { width: `${100 / columns - 1}%` }]}>
                 <View style={styles.cardWrap}>
                   <DesignCard
                     design={design}
@@ -217,7 +245,7 @@ export default function DesignsScreen() {
           <View style={[styles.modalCard, { backgroundColor: theme.surfaceElevated }]}>
             <Text style={[styles.modalTitle, { color: theme.espresso }]}>Delete this design?</Text>
             <Text style={[styles.modalBody, { color: theme.taupe }]}>
-              {deleteTarget?.title} will be removed from this device. This cannot be undone.
+              {deleteTarget?.title} will be deleted from your account. This cannot be undone.
             </Text>
             <View style={styles.modalActions}>
               <Button label="Cancel" variant="secondary" onPress={() => setDeleteTarget(null)} />
@@ -225,14 +253,17 @@ export default function DesignsScreen() {
                 label="Delete"
                 onPress={async () => {
                   try {
-                    if (deleteTarget) await deleteDesign(deleteTarget.id);
-                  } catch {
+                    if (deleteTarget) {
+                      await deleteRemoteDesign(deleteTarget.id);
+                      await deleteDesign(deleteTarget.id);
+                    }
+                    setDeleteTarget(null);
+                  } catch (error) {
                     Alert.alert(
-                      'Design removed',
-                      'The design was removed, but its local photo could not be cleaned up.',
+                      'Could not delete design',
+                      error instanceof Error ? error.message : 'Please try again.',
                     );
                   }
-                  setDeleteTarget(null);
                 }}
               />
             </View>
@@ -295,9 +326,11 @@ const styles = StyleSheet.create({
   filterLabelActive: { color: Brand.ivory, fontWeight: '600' },
   countRow: { paddingHorizontal: Spacing.four, paddingVertical: Spacing.two },
   countText: { ...Typography.bodySmall, color: Brand.taupe },
+  historyError: { ...Typography.bodySmall, paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
+  savedNote: { ...Typography.bodySmall, paddingHorizontal: Spacing.four, paddingBottom: Spacing.two },
   gridContainer: { paddingHorizontal: Spacing.four },
-  gridInner: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  gridItem: { width: '48%' },
+  gridInner: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, justifyContent: 'flex-start' },
+  gridItem: { width: '48%', minWidth: 0 },
   cardWrap: { position: 'relative' },
   deleteButton: {
     position: 'absolute',
@@ -331,6 +364,9 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     borderRadius: Radius.xl,
     backgroundColor: Brand.ivory,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
   },
   modalTitle: { ...Typography.headingSmall, color: Brand.espresso, fontFamily: Fonts?.serif ?? 'serif' },
   modalBody: { ...Typography.bodyMedium, color: Brand.taupe },
