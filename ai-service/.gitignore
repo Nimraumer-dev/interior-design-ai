@@ -5,7 +5,7 @@ __pycache__/
 *.ckpt
 loras/
 data/
-*.blendresult_mock.jpg
+*.blend
 result_mock.jpg
 test.json
 out.json

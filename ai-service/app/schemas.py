@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
+
 
 class RedesignRequest(BaseModel):
     designId: str
@@ -9,4 +10,4 @@ class RedesignRequest(BaseModel):
     budgetRange: str = "medium"
     colors: List[str] = []
     numVariants: int = 1
-    seed: int = 42
+    seed: Optional[int] = None
